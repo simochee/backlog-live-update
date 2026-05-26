@@ -15,6 +15,6 @@ pre-push:
     - name: lint
       run: bunx biome ci --no-errors-on-unmatched .
     - name: typecheck
-      run: bunx tsc --noEmit
+      run: bun run compile
     - name: test
-      run: bun test
+      run: bunx vitest run --passWithNoTests
