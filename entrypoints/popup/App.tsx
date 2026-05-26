@@ -59,7 +59,7 @@ export const App = () => {
 	if (!loaded) return null;
 
 	return (
-		<div className="p-4">
+		<div className="text-sm">
 			{/* @valibot/to-json-schema の JsonSchema を RJSFSchema にキャスト（runtime 形状は互換） */}
 			<Form
 				schema={settingsJsonSchema as RJSFSchema}
