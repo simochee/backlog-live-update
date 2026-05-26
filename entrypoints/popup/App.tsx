@@ -28,11 +28,17 @@ export const App = () => {
 
 	useEffect(() => {
 		let ignore = false;
-		settingsStorage.getValue().then((value) => {
-			if (ignore) return;
-			setSettings(value);
-			setLoaded(true);
-		});
+		settingsStorage
+			.getValue()
+			.then((value) => {
+				if (ignore) return;
+				setSettings(value);
+				setLoaded(true);
+			})
+			.catch((error) => {
+				console.error("[live-for-backlog] failed to load settings:", error);
+				if (!ignore) setLoaded(true);
+			});
 		return () => {
 			ignore = true;
 		};
@@ -40,6 +46,7 @@ export const App = () => {
 
 	// safeParse 成功時のみ storage へ反映（全体保留方式）。失敗時はエラー表示のまま編集継続。
 	const update = (next: Settings) => {
+		// next は呼び出し側で完成済みのため functional updater は不要（popup は単一同期操作）
 		setSettings(next);
 		const result = safeParse(SettingsSchema, next);
 		if (result.success) {
@@ -65,6 +72,7 @@ export const App = () => {
 	if (!loaded) return null;
 
 	return (
+		// colorScheme="light": 設計上 light 固定（OS のダークモード設定に追従しない意図）
 		<Provider theme={defaultTheme} colorScheme="light">
 			<View padding="size-200">
 				<Form validationBehavior="aria" validationErrors={errors}>
