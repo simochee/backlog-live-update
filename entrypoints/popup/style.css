@@ -1,9 +1,10 @@
-:root {
-	font-family: system-ui, sans-serif;
+@import "tailwindcss";
+
+@plugin "daisyui" {
+	themes: forest --default;
 }
 
 body {
 	margin: 0;
-	/* 拡張機能 popup の最小幅 */
 	min-width: 360px;
 }

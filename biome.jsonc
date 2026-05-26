@@ -5,6 +5,13 @@
 		"clientKind": "git",
 		"useIgnoreFile": true
 	},
+	"css": {
+		"parser": {
+			"cssModules": false,
+			"allowWrongLineComments": false,
+			"tailwindDirectives": true
+		}
+	},
 	"linter": {
 		"rules": {
 			"suspicious": {
