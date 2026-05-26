@@ -12,6 +12,7 @@ import {
 } from "@/utils/settings";
 
 const uiSchema: UiSchema = {
+	"ui:submitButtonOptions": { norender: true },
 	spaces: {
 		items: {
 			apiKey: {
@@ -64,12 +65,9 @@ export const App = () => {
 				uiSchema={uiSchema}
 				validator={validator}
 				formData={settings}
-				liveValidate
+				liveValidate="onChange"
 				onChange={({ formData }) => update(formData)}
-			>
-				{/* 自動保存のため submit ボタンを表示しない */}
-				<></>
-			</Form>
+			/>
 		</div>
 	);
 };
