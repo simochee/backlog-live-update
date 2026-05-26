@@ -100,7 +100,7 @@ export const App = () => {
 					<Heading level={3}>スペース</Heading>
 					{/* View でラップ: Form の children 型が配列を直接受け付けないため (TS2739) */}
 					<View>
-						<Flex direction="column" gap="size-200">
+						<Flex direction="column" gap="size-200" width="100%">
 							{settings.spaces.map((space, index) => (
 								// biome-ignore-start lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
 								<View
@@ -111,6 +111,9 @@ export const App = () => {
 									padding="size-150"
 								>
 									<Flex direction="column" gap="size-150">
+										<Heading level={4} marginBottom="size-0" marginTop="size-0">
+											スペース {index + 1}
+										</Heading>
 										<TextField
 											label="Space ID"
 											name={`spaces.${index}.id`}
