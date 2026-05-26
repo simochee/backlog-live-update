@@ -15,22 +15,20 @@ export const App = () => {
 	};
 
 	return (
-		<>
-			<VarUI onChange={update} values={values}>
-				<VarCategory label="Space">
-					<VarString label="ID" path="id" />
-					<VarString label="API Key" path="apiKey" />
-				</VarCategory>
-				<VarCategory label="Preferences">
-					<VarNumber
-						label="Interval [m]"
-						path="interval"
-						integer
-						min={1}
-						showButtons
-					/>
-				</VarCategory>
-			</VarUI>
-		</>
+		<VarUI onChange={update} values={values}>
+			<VarCategory label="Space">
+				<VarString label="ID" path="spaces[0].id" />
+				<VarString label="API Key" path="spaces[0].apiKey" />
+			</VarCategory>
+			<VarCategory label="Preferences">
+				<VarNumber
+					label="Interval [m]"
+					path="interval"
+					integer
+					min={1}
+					showButtons
+				/>
+			</VarCategory>
+		</VarUI>
 	);
 };
