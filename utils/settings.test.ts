@@ -5,6 +5,7 @@ import {
 	DEFAULT_SETTINGS,
 	SettingsSchema,
 	SpaceConfigSchema,
+	settingsJsonSchema,
 	settingsStorage,
 } from "./settings";
 
@@ -76,6 +77,29 @@ describe("SpaceConfigSchema", () => {
 			enabled: true,
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+describe("settingsJsonSchema", () => {
+	it("is an object schema with title metadata", () => {
+		const js = settingsJsonSchema as Record<string, any>;
+		expect(js.type).toBe("object");
+		expect(js.properties.globalEnabled.title).toBe("全機能を有効化");
+		expect(js.properties.intervalMinutes.title).toBe("更新間隔(分)");
+	});
+
+	it("encodes the interval range", () => {
+		const js = settingsJsonSchema as Record<string, any>;
+		expect(js.properties.intervalMinutes.minimum).toBe(1);
+		expect(js.properties.intervalMinutes.maximum).toBe(30);
+	});
+
+	it("encodes the space id pattern and titles", () => {
+		const js = settingsJsonSchema as Record<string, any>;
+		const item = js.properties.spaces.items.properties;
+		expect(item.id.pattern).toBe("^[a-zA-Z0-9-]+$");
+		expect(item.id.title).toBe("Space ID");
+		expect(item.apiKey.title).toBe("API Key");
 	});
 });
 
