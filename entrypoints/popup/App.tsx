@@ -1,12 +1,139 @@
-import { Button, defaultTheme, Provider, View } from "@adobe/react-spectrum";
+import {
+	ActionButton,
+	Button,
+	defaultTheme,
+	Flex,
+	Form,
+	Heading,
+	NumberField,
+	Provider,
+	Switch,
+	TextField,
+	View,
+} from "@adobe/react-spectrum";
+import { useEffect, useState } from "react";
+import { safeParse } from "valibot";
+import {
+	DEFAULT_SETTINGS,
+	type Settings,
+	SettingsSchema,
+	settingsStorage,
+} from "@/utils/settings";
+import { toValidationErrors } from "@/utils/validation";
 
 export const App = () => {
+	const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [loaded, setLoaded] = useState(false);
+
+	useEffect(() => {
+		settingsStorage.getValue().then((value) => {
+			setSettings(value);
+			setLoaded(true);
+		});
+	}, []);
+
+	// safeParse 成功時のみ storage へ反映（全体保留方式）。失敗時はエラー表示のまま編集継続。
+	const update = (next: Settings) => {
+		setSettings(next);
+		const result = safeParse(SettingsSchema, next);
+		if (result.success) {
+			setErrors({});
+			settingsStorage.setValue(result.output);
+		} else {
+			setErrors(toValidationErrors(result.issues));
+		}
+	};
+
+	const updateSpace = (
+		index: number,
+		patch: Partial<Settings["spaces"][number]>,
+	) => {
+		const spaces = settings.spaces.map((space, i) =>
+			i === index ? { ...space, ...patch } : space,
+		);
+		update({ ...settings, spaces });
+	};
+
+	if (!loaded) return null;
+
 	return (
 		<Provider theme={defaultTheme} colorScheme="light">
-			<View padding="size-200" minWidth="size-3600">
-				<Button variant="accent" onPress={() => {}}>
-					live-for-backlog
-				</Button>
+			<View padding="size-200">
+				<Form validationBehavior="aria" validationErrors={errors}>
+					<Switch
+						isSelected={settings.globalEnabled}
+						onChange={(value) => update({ ...settings, globalEnabled: value })}
+					>
+						全機能を有効化
+					</Switch>
+
+					<NumberField
+						label="更新間隔(分)"
+						name="intervalMinutes"
+						minValue={1}
+						maxValue={30}
+						step={1}
+						value={settings.intervalMinutes}
+						onChange={(value) =>
+							update({ ...settings, intervalMinutes: value })
+						}
+					/>
+
+					<Heading level={3}>スペース</Heading>
+					<View>
+						{settings.spaces.map((space, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
+							<Flex key={index} gap="size-100" alignItems="end">
+								<TextField
+									label="Space ID"
+									name={`spaces.${index}.id`}
+									value={space.id}
+									onChange={(value) => updateSpace(index, { id: value })}
+								/>
+								<TextField
+									label="API Key"
+									type="password"
+									name={`spaces.${index}.apiKey`}
+									value={space.apiKey}
+									onChange={(value) => updateSpace(index, { apiKey: value })}
+								/>
+								<Switch
+									isSelected={space.enabled}
+									onChange={(value) => updateSpace(index, { enabled: value })}
+								>
+									有効
+								</Switch>
+								<ActionButton
+									aria-label="このスペースを削除"
+									onPress={() =>
+										update({
+											...settings,
+											spaces: settings.spaces.filter((_, i) => i !== index),
+										})
+									}
+								>
+									✕
+								</ActionButton>
+							</Flex>
+						))}
+					</View>
+
+					<Button
+						variant="accent"
+						onPress={() =>
+							update({
+								...settings,
+								spaces: [
+									...settings.spaces,
+									{ id: "", apiKey: "", enabled: true },
+								],
+							})
+						}
+					>
+						スペースを追加
+					</Button>
+				</Form>
 			</View>
 		</Provider>
 	);
