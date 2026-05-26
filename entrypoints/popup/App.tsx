@@ -27,10 +27,15 @@ export const App = () => {
 	const [loaded, setLoaded] = useState(false);
 
 	useEffect(() => {
+		let ignore = false;
 		settingsStorage.getValue().then((value) => {
+			if (ignore) return;
 			setSettings(value);
 			setLoaded(true);
 		});
+		return () => {
+			ignore = true;
+		};
 	}, []);
 
 	// safeParse 成功時のみ storage へ反映（全体保留方式）。失敗時はエラー表示のまま編集継続。
@@ -39,7 +44,9 @@ export const App = () => {
 		const result = safeParse(SettingsSchema, next);
 		if (result.success) {
 			setErrors({});
-			settingsStorage.setValue(result.output);
+			settingsStorage.setValue(result.output).catch((error) => {
+				console.error("[live-for-backlog] failed to persist settings:", error);
+			});
 		} else {
 			setErrors(toValidationErrors(result.issues));
 		}
@@ -75,12 +82,14 @@ export const App = () => {
 						maxValue={30}
 						step={1}
 						value={settings.intervalMinutes}
-						onChange={(value) =>
-							update({ ...settings, intervalMinutes: value })
-						}
+						onChange={(value) => {
+							if (Number.isNaN(value)) return;
+							update({ ...settings, intervalMinutes: value });
+						}}
 					/>
 
 					<Heading level={3}>スペース</Heading>
+					{/* View でラップ: Form の children 型が配列を直接受け付けないため (TS2739) */}
 					<View>
 						{settings.spaces.map((space, index) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
@@ -88,6 +97,7 @@ export const App = () => {
 								<TextField
 									label="Space ID"
 									name={`spaces.${index}.id`}
+									isRequired
 									value={space.id}
 									onChange={(value) => updateSpace(index, { id: value })}
 								/>
@@ -95,6 +105,7 @@ export const App = () => {
 									label="API Key"
 									type="password"
 									name={`spaces.${index}.apiKey`}
+									isRequired
 									value={space.apiKey}
 									onChange={(value) => updateSpace(index, { apiKey: value })}
 								/>
