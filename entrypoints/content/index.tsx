@@ -7,7 +7,6 @@ export default defineContentScript({
 		"*://*.backlog.jp/*",
 		"*://*.backlogtool.com/*",
 	],
-	cssInjectionMode: "ui",
 
 	async main() {
 		const settings = parseSettings(await settingsStorage.getValue());
@@ -20,5 +19,10 @@ export default defineContentScript({
 
 		// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
 		console.log(await backlog.getMyself());
+
+		onElementAppear("#comments", () => {
+			// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
+			console.log("comments appeared");
+		});
 	},
 });
