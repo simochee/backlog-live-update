@@ -1,14 +1,13 @@
-import { useState } from "react";
+import { Button, defaultTheme, Provider, View } from "@adobe/react-spectrum";
 
 export const App = () => {
-	const [count, setCount] = useState(0);
-
 	return (
-		<main className="popup">
-			<h1>live-for-backlog</h1>
-			<button type="button" onClick={() => setCount((c) => c + 1)}>
-				count is {count}
-			</button>
-		</main>
+		<Provider theme={defaultTheme} colorScheme="light">
+			<View padding="size-200" minWidth="size-3600">
+				<Button variant="accent" onPress={() => {}}>
+					live-for-backlog
+				</Button>
+			</View>
+		</Provider>
 	);
 };

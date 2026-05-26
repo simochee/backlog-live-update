@@ -27,7 +27,9 @@
 		"wxt": "^0.20.26"
 	},
 	"dependencies": {
+		"@adobe/react-spectrum": "^3.47.0",
 		"react": "^19.2.6",
-		"react-dom": "^19.2.6"
+		"react-dom": "^19.2.6",
+		"valibot": "^1.4.1"
 	}
 }
