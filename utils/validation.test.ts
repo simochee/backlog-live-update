@@ -12,7 +12,7 @@ describe("toValidationErrors", () => {
 		});
 		if (result.success) throw new Error("expected failure");
 		const errors = toValidationErrors(result.issues);
-		expect(errors.intervalMinutes).toBeTruthy();
+		expect(errors.intervalMinutes).toBe("1 以上で入力してください");
 	});
 
 	it("maps nested space error with dot path", () => {
@@ -23,6 +23,6 @@ describe("toValidationErrors", () => {
 		});
 		if (result.success) throw new Error("expected failure");
 		const errors = toValidationErrors(result.issues);
-		expect(errors["spaces.0.id"]).toBeTruthy();
+		expect(errors["spaces.0.id"]).toBe("Space ID は必須です");
 	});
 });
