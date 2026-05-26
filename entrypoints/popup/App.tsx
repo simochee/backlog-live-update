@@ -89,6 +89,7 @@ export const App = () => {
 						minValue={1}
 						maxValue={30}
 						step={1}
+						width="100%"
 						value={settings.intervalMinutes}
 						onChange={(value) => {
 							if (Number.isNaN(value)) return;
@@ -99,47 +100,69 @@ export const App = () => {
 					<Heading level={3}>スペース</Heading>
 					{/* View でラップ: Form の children 型が配列を直接受け付けないため (TS2739) */}
 					<View>
-						{settings.spaces.map((space, index) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
-							<Flex key={index} gap="size-100" alignItems="end">
-								<TextField
-									label="Space ID"
-									name={`spaces.${index}.id`}
-									isRequired
-									value={space.id}
-									onChange={(value) => updateSpace(index, { id: value })}
-								/>
-								<TextField
-									label="API Key"
-									type="password"
-									name={`spaces.${index}.apiKey`}
-									isRequired
-									value={space.apiKey}
-									onChange={(value) => updateSpace(index, { apiKey: value })}
-								/>
-								<Switch
-									isSelected={space.enabled}
-									onChange={(value) => updateSpace(index, { enabled: value })}
+						<Flex direction="column" gap="size-200">
+							{settings.spaces.map((space, index) => (
+								// biome-ignore-start lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
+								<View
+									key={index}
+									borderWidth="thin"
+									borderColor="dark"
+									borderRadius="medium"
+									padding="size-150"
 								>
-									有効
-								</Switch>
-								<ActionButton
-									aria-label="このスペースを削除"
-									onPress={() =>
-										update({
-											...settings,
-											spaces: settings.spaces.filter((_, i) => i !== index),
-										})
-									}
-								>
-									✕
-								</ActionButton>
-							</Flex>
-						))}
+									<Flex direction="column" gap="size-150">
+										<TextField
+											label="Space ID"
+											name={`spaces.${index}.id`}
+											isRequired
+											width="100%"
+											value={space.id}
+											onChange={(value) => updateSpace(index, { id: value })}
+										/>
+										<TextField
+											label="API Key"
+											type="password"
+											name={`spaces.${index}.apiKey`}
+											isRequired
+											width="100%"
+											value={space.apiKey}
+											onChange={(value) =>
+												updateSpace(index, { apiKey: value })
+											}
+										/>
+										<Flex justifyContent="space-between" alignItems="center">
+											<Switch
+												isSelected={space.enabled}
+												onChange={(value) =>
+													updateSpace(index, { enabled: value })
+												}
+											>
+												有効
+											</Switch>
+											<ActionButton
+												aria-label="このスペースを削除"
+												onPress={() =>
+													update({
+														...settings,
+														spaces: settings.spaces.filter(
+															(_, i) => i !== index,
+														),
+													})
+												}
+											>
+												✕
+											</ActionButton>
+										</Flex>
+									</Flex>
+								</View>
+								// biome-ignore-end lint/suspicious/noArrayIndexKey: 行は index key（controlled value のため再順序は発生しない）
+							))}
+						</Flex>
 					</View>
 
 					<Button
 						variant="accent"
+						width="100%"
 						onPress={() =>
 							update({
 								...settings,
