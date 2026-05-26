@@ -1,1 +1,7 @@
-@import "tailwindcss";
+@import "react-var-ui/index.css";
+
+body {
+	width: 320px;
+	background: #22222a;
+	margin: 0;
+}

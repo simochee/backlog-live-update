@@ -1,8 +1,36 @@
-import { clear, suspend } from "suspend-react";
-import { settingsStorage } from "@/utils/settings";
+import { useState } from "react";
+import { VarCategory, VarNumber, VarString, VarUI } from "react-var-ui";
+import { suspend } from "suspend-react";
+import { type Settings, settingsStorage } from "@/utils/settings";
 
 export const App = () => {
 	const settings = suspend(() => settingsStorage.getValue(), ["settings"]);
 
-	return null;
+	const [values, setValues] = useState(settings);
+
+	const update = async (inputs: Settings) => {
+		setValues(inputs);
+
+		await settingsStorage.setValue(inputs);
+	};
+
+	return (
+		<>
+			<VarUI onChange={update} values={values}>
+				<VarCategory label="Space">
+					<VarString label="ID" path="id" />
+					<VarString label="API Key" path="apiKey" />
+				</VarCategory>
+				<VarCategory label="Preferences">
+					<VarNumber
+						label="Interval [m]"
+						path="interval"
+						integer
+						min={1}
+						showButtons
+					/>
+				</VarCategory>
+			</VarUI>
+		</>
+	);
 };
