@@ -1,7 +1,12 @@
 import { safeParse } from "valibot";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing";
-import { DEFAULT_SETTINGS, SettingsSchema, settingsStorage } from "./settings";
+import {
+	DEFAULT_SETTINGS,
+	SettingsSchema,
+	SpaceConfigSchema,
+	settingsStorage,
+} from "./settings";
 
 beforeEach(() => {
 	fakeBrowser.reset();
@@ -34,6 +39,44 @@ describe("SettingsSchema", () => {
 		});
 		expect(result.success).toBe(false);
 	});
+
+	it("rejects empty apiKey", () => {
+		const result = safeParse(SettingsSchema, {
+			globalEnabled: true,
+			intervalMinutes: 1,
+			spaces: [{ id: "nulab", apiKey: "", enabled: true }],
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects intervalMinutes above maximum (31)", () => {
+		const result = safeParse(SettingsSchema, {
+			globalEnabled: true,
+			intervalMinutes: 31,
+			spaces: [],
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+describe("SpaceConfigSchema", () => {
+	it("accepts id with hyphens and digits", () => {
+		const result = safeParse(SpaceConfigSchema, {
+			id: "nulab-123",
+			apiKey: "my-api-key",
+			enabled: true,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects id containing spaces", () => {
+		const result = safeParse(SpaceConfigSchema, {
+			id: "nulab space",
+			apiKey: "my-api-key",
+			enabled: true,
+		});
+		expect(result.success).toBe(false);
+	});
 });
 
 describe("settingsStorage", () => {
@@ -45,10 +88,13 @@ describe("settingsStorage", () => {
 		await settingsStorage.setValue({
 			globalEnabled: false,
 			intervalMinutes: 10,
-			spaces: [],
+			spaces: [{ id: "nulab", apiKey: "test-key", enabled: false }],
 		});
 		const stored = await settingsStorage.getValue();
-		expect(stored.globalEnabled).toBe(false);
-		expect(stored.intervalMinutes).toBe(10);
+		expect(stored).toEqual({
+			globalEnabled: false,
+			intervalMinutes: 10,
+			spaces: [{ id: "nulab", apiKey: "test-key", enabled: false }],
+		});
 	});
 });
