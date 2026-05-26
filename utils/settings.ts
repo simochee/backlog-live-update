@@ -1,4 +1,3 @@
-import { toJsonSchema } from "@valibot/to-json-schema";
 import * as v from "valibot";
 import { storage } from "#imports";
 
@@ -37,8 +36,6 @@ export const DEFAULT_SETTINGS: Settings = {
 	intervalMinutes: 1,
 	spaces: [],
 };
-
-export const settingsJsonSchema = toJsonSchema(SettingsSchema);
 
 export const settingsStorage = storage.defineItem<Settings>("local:settings", {
 	fallback: DEFAULT_SETTINGS,
