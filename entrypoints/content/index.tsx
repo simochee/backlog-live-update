@@ -1,5 +1,4 @@
-import { createRoot } from "react-dom/client";
-import { App } from "./App.tsx";
+import { Backlog } from "backlog-js";
 import "./style.css";
 
 export default defineContentScript({
@@ -10,24 +9,16 @@ export default defineContentScript({
 	],
 	cssInjectionMode: "ui",
 
-	async main(ctx) {
-		const ui = await createShadowRootUi(ctx, {
-			name: "live-for-backlog-ui",
-			position: "inline",
-			anchor: "body",
-			onMount: (container) => {
-				const wrapper = document.createElement("div");
-				container.append(wrapper);
+	async main() {
+		const settings = parseSettings(await settingsStorage.getValue());
+		const { id: spaceId, apiKey } = settings.spaces[0] ?? {};
+		const [currentSpaceId] = location.hostname.split(".");
 
-				const root = createRoot(wrapper);
-				root.render(<App />);
-				return root;
-			},
-			onRemove: (root) => {
-				root?.unmount();
-			},
-		});
+		if (spaceId !== currentSpaceId) return;
 
-		ui.mount();
+		const backlog = new Backlog({ host: location.hostname, apiKey });
+
+		// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
+		console.log(await backlog.getMyself());
 	},
 });
