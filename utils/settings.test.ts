@@ -105,7 +105,9 @@ describe("settingsJsonSchema", () => {
 			(itemSchema.properties?.[name] ?? {}) as JsonSchema;
 		expect(itemProp("id").pattern).toBe("^[a-zA-Z0-9-]+$");
 		expect(itemProp("id").title).toBe("Space ID");
+		expect(itemProp("id").minLength).toBe(1);
 		expect(itemProp("apiKey").title).toBe("API Key");
+		expect(itemProp("apiKey").minLength).toBe(1);
 		expect(itemProp("enabled").title).toBe("有効");
 	});
 

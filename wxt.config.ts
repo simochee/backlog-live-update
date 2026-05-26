@@ -7,6 +7,7 @@ export default defineConfig({
 	autoIcons: {
 		baseIconPath: "assets/icon.svg",
 	},
+	// TODO: popup chunk は RJSF + AJV で ~692kB（Vite 500kB 警告）。肥大化したら lazy load / 軽量 validator を検討
 	vite: () => ({
 		plugins: [tailwindcss()],
 	}),

@@ -60,6 +60,7 @@ export const App = () => {
 
 	return (
 		<div className="p-4">
+			{/* @valibot/to-json-schema の JsonSchema を RJSFSchema にキャスト（runtime 形状は互換） */}
 			<Form
 				schema={settingsJsonSchema as RJSFSchema}
 				uiSchema={uiSchema}
