@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* @rjsf/daisyui の widget が使う daisyui クラスを Tailwind に検出させる（node_modules は既定で除外されるため明示） */
+@source "../../node_modules/@rjsf/daisyui";
+
 @plugin "daisyui" {
 	themes: forest --default;
 }
