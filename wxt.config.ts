@@ -13,5 +13,15 @@ export default defineConfig({
 		name: "Live for Backlog",
 		description: "Keep Backlog alive without reloading.",
 		permissions: ["storage"],
+		web_accessible_resources: [
+			{
+				resources: ["comment-bridge.js"],
+				matches: [
+					"*://*.backlog.com/*",
+					"*://*.backlog.jp/*",
+					"*://*.backlogtool.com/*",
+				],
+			},
+		],
 	},
 });
