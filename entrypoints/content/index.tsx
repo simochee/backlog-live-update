@@ -17,12 +17,22 @@ export default defineContentScript({
 
 		const backlog = new Backlog({ host: location.hostname, apiKey });
 
-		// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
-		console.log(await backlog.getMyself());
-
 		onElementAppear("#comments", () => {
-			// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
-			console.log("comments appeared");
+			const [, issueKey] =
+				location.pathname.match(/^\/view\/([A-Z0-9_]+-[0-9]+)/) ?? [];
+
+			if (!issueKey) return;
+
+			pollWhileVisible(
+				async () => {
+					// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
+					console.log(await backlog.getIssueComments(issueKey, {}));
+
+					// biome-ignore lint/suspicious/noConsole: 開発中の暫定確認
+					console.log("Checking for new comments...");
+				},
+				settings.interval * 60 * 1000,
+			);
 		});
 	},
 });
