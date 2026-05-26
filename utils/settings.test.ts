@@ -1,3 +1,4 @@
+import type { JsonSchema } from "@valibot/to-json-schema";
 import { safeParse } from "valibot";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing";
@@ -81,25 +82,42 @@ describe("SpaceConfigSchema", () => {
 });
 
 describe("settingsJsonSchema", () => {
+	const js = settingsJsonSchema as JsonSchema;
+	const prop = (name: string): JsonSchema =>
+		(js.properties?.[name] ?? {}) as JsonSchema;
+
 	it("is an object schema with title metadata", () => {
-		const js = settingsJsonSchema as Record<string, any>;
 		expect(js.type).toBe("object");
-		expect(js.properties.globalEnabled.title).toBe("全機能を有効化");
-		expect(js.properties.intervalMinutes.title).toBe("更新間隔(分)");
+		expect(prop("globalEnabled").title).toBe("全機能を有効化");
+		expect(prop("intervalMinutes").title).toBe("更新間隔(分)");
+		expect(prop("spaces").title).toBe("スペース");
 	});
 
 	it("encodes the interval range", () => {
-		const js = settingsJsonSchema as Record<string, any>;
-		expect(js.properties.intervalMinutes.minimum).toBe(1);
-		expect(js.properties.intervalMinutes.maximum).toBe(30);
+		expect(prop("intervalMinutes").minimum).toBe(1);
+		expect(prop("intervalMinutes").maximum).toBe(30);
 	});
 
 	it("encodes the space id pattern and titles", () => {
-		const js = settingsJsonSchema as Record<string, any>;
-		const item = js.properties.spaces.items.properties;
-		expect(item.id.pattern).toBe("^[a-zA-Z0-9-]+$");
-		expect(item.id.title).toBe("Space ID");
-		expect(item.apiKey.title).toBe("API Key");
+		const spacesSchema = prop("spaces");
+		const itemSchema = (spacesSchema.items ?? {}) as JsonSchema;
+		const itemProp = (name: string): JsonSchema =>
+			(itemSchema.properties?.[name] ?? {}) as JsonSchema;
+		expect(itemProp("id").pattern).toBe("^[a-zA-Z0-9-]+$");
+		expect(itemProp("id").title).toBe("Space ID");
+		expect(itemProp("apiKey").title).toBe("API Key");
+		expect(itemProp("enabled").title).toBe("有効");
+	});
+
+	it("has required fields at top level and space item level", () => {
+		expect(js.required).toContain("globalEnabled");
+		expect(js.required).toContain("intervalMinutes");
+		expect(js.required).toContain("spaces");
+		const spacesSchema = prop("spaces");
+		const itemSchema = (spacesSchema.items ?? {}) as JsonSchema;
+		expect(itemSchema.required).toContain("id");
+		expect(itemSchema.required).toContain("apiKey");
+		expect(itemSchema.required).toContain("enabled");
 	});
 });
 
