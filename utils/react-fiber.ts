@@ -15,32 +15,13 @@ const REACT_CONTAINER_KEY_PREFIX = "__reactContainer$";
 const FUNCTION_COMPONENT_TAGS = new Set([0, 15]);
 
 /**
- * Backlog 画面が state に積むコメント1件分の形状。実画面の fiber から実測した
- * 構造に準拠(GetInitialComments.action のレスポンス要素と同一)。
+ * Backlog 画面 state が保持する comment 1件。実体は内部 endpoint
+ * `GetInitialComments.action` のレスポンス要素そのもの(render-ready)。本拡張は
+ * dedup に `id` を使うだけで中身は解釈しないため、その他フィールドは不透明とする。
  */
 export interface PageComment {
 	id: number;
-	name: string;
-	icon: string;
-	createdUserId: string;
-	createdUser: {
-		id: number;
-		userId: string;
-		uniqueId: string;
-		name: string;
-		mailAddress: string;
-		roleType: number;
-		keyword: string;
-		lang: string | null;
-		icon: string;
-	};
-	createdOn: string;
-	updatedOn: string;
-	content: string;
-	plainContent: string;
-	changelog: never[];
-	notifyResource: never[];
-	mentionsInContent: null;
+	[key: string]: unknown;
 }
 
 /** コメント一覧を保持する hook の state 形状。 */

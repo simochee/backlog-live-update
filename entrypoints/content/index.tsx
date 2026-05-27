@@ -1,5 +1,4 @@
 import { Backlog } from "backlog-js";
-import { mapComment } from "../../utils/map-comment";
 import "./style.css";
 
 /** MAIN world bridge から返る state 応答。 */
@@ -69,18 +68,17 @@ export default defineContentScript({
 					const state = await requestState();
 					if (!state.found || state.issueId == null) return;
 
-					const comments = await backlog.getIssueComments(state.issueId, {
+					// 高頻度の polling 負荷は public API へ。最新 id より新しい comment が
+					// あるかだけを最小ペイロードで確認する。
+					const probe = await backlog.getIssueComments(state.issueId, {
 						minId: state.minId,
-						order: "asc",
-						count: 100,
+						count: 1,
+						order: "desc",
 					});
-					if (comments.length === 0) return;
+					if (probe.length === 0) return;
 
-					script.dispatchEvent(
-						new CustomEvent("lfb:append", {
-							detail: JSON.stringify({ comments: comments.map(mapComment) }),
-						}),
-					);
+					// 実データ取得と注入は MAIN world bridge が内部 API(render-ready)で行う。
+					script.dispatchEvent(new CustomEvent("lfb:fetch-append"));
 				},
 				settings.interval * 60 * 1000,
 			);
