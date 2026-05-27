@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # mise.toml に固定したツール(bun)をそのまま使い、ローカルと CI の差をなくす。
+      - uses: jdx/mise-action@v2
+      - run: bun install --frozen-lockfile
+      # lefthook の pre-push と同じ 3 チェック。hook を --no-verify で飛ばしても CI が守る。
+      - run: bunx biome ci --no-errors-on-unmatched .
+      - run: bun run compile
+      - run: bunx vitest run --passWithNoTests
