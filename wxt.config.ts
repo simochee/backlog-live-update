@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
+import { BACKLOG_HOST_MATCHES } from "./utils/backlog";
 
 export default defineConfig({
 	modules: ["@wxt-dev/module-react", "@wxt-dev/auto-icons"],
@@ -16,11 +17,7 @@ export default defineConfig({
 		web_accessible_resources: [
 			{
 				resources: ["comment-bridge.js"],
-				matches: [
-					"*://*.backlog.com/*",
-					"*://*.backlog.jp/*",
-					"*://*.backlogtool.com/*",
-				],
+				matches: [...BACKLOG_HOST_MATCHES],
 			},
 		],
 	},
