@@ -29,6 +29,16 @@ describe("highlightComments", () => {
 		expect(text).toContain("comment-item-2");
 	});
 
+	it("同じ id を複数回渡しても rule は重複しない", () => {
+		highlightComments([1]);
+		highlightComments([1, 2]);
+
+		const text =
+			document.getElementById("lfb-comment-highlight")?.textContent ?? "";
+		expect(text.match(/#comment-item-1\{/g) ?? []).toHaveLength(1);
+		expect(text).toContain("#comment-item-2{");
+	});
+
 	it("空配列なら style 要素を作らない", () => {
 		highlightComments([]);
 		expect(document.getElementById("lfb-comment-highlight")).toBeNull();

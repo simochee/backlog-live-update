@@ -22,9 +22,18 @@ export function highlightComments(ids: number[]): void {
 		document.head.appendChild(style);
 	}
 
-	const rules = ids.map(
-		(id) =>
-			`#comment-item-${id}{background-color:var(--backgroundColorUpdate);}`,
+	// ハイライト済み id を style 要素自身に持たせ(真実源を DOM へ一元化)、毎回 rule 全体を
+	// 再生成する。これで重複 rule の累積や単調な textContent 成長を防ぐ。
+	const highlighted = new Set<number>(
+		JSON.parse(style.dataset.ids ?? "[]") as number[],
 	);
-	style.textContent += `${rules.join("\n")}\n`;
+	for (const id of ids) highlighted.add(id);
+
+	style.dataset.ids = JSON.stringify([...highlighted]);
+	style.textContent = [...highlighted]
+		.map(
+			(id) =>
+				`#comment-item-${id}{background-color:var(--backgroundColorUpdate);}`,
+		)
+		.join("\n");
 }
