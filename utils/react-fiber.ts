@@ -42,6 +42,7 @@ interface Fiber {
 	child: Fiber | null;
 	sibling: Fiber | null;
 	memoizedState: unknown;
+	memoizedProps?: Record<string, unknown> | null;
 }
 
 /** 見つかったコメント hook の dispatch と現在の state。 */
@@ -105,6 +106,38 @@ export function isCommentState(value: unknown): value is CommentState {
 		Array.isArray(state.commentIds) &&
 		Array.isArray(state.comments)
 	);
+}
+
+/** TanStack Query QueryClient の、本拡張が触る最小 surface。 */
+export interface QueryClientLike {
+	getQueryCache(): { getAll(): { queryKey: unknown }[] };
+	invalidateQueries(filters?: { queryKey?: unknown }): unknown;
+}
+
+/** 値が QueryClientLike か(getQueryCache を持つか)を判定する。 */
+function isQueryClient(value: unknown): value is QueryClientLike {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as { getQueryCache?: unknown }).getQueryCache === "function"
+	);
+}
+
+/**
+ * fiber tree を走査し、QueryClientProvider が props で運ぶ QueryClient を返す。
+ * `memoizedProps.client`(Provider) または `.value`(Context.Provider)を見る。
+ * 未検出は null。global(window.__qc 等)には依存せず毎回再取得する。
+ */
+export function findQueryClient(): QueryClientLike | null {
+	const root = findRootFiber();
+	if (!root) return null;
+	for (const fiber of walkFibers(root)) {
+		const props = fiber.memoizedProps;
+		if (!props) continue;
+		if (isQueryClient(props.client)) return props.client;
+		if (isQueryClient(props.value)) return props.value;
+	}
+	return null;
 }
 
 /**

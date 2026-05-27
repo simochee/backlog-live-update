@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	type CommentState,
 	findCommentStateHook,
+	findQueryClient,
 	isCommentState,
 	walkFibers,
 	walkHooks,
@@ -12,6 +13,7 @@ type Fiber = {
 	child: Fiber | null;
 	sibling: Fiber | null;
 	memoizedState: unknown;
+	memoizedProps?: Record<string, unknown> | null;
 };
 
 type Hook = {
@@ -132,5 +134,44 @@ describe("findCommentStateHook", () => {
 
 	it("React root が無ければ null", () => {
 		expect(findCommentStateHook()).toBeNull();
+	});
+});
+
+describe("findQueryClient", () => {
+	const queryClient = () => ({
+		getQueryCache: () => ({ getAll: () => [] }),
+		invalidateQueries: vi.fn(),
+	});
+
+	it("memoizedProps.client が getQueryCache を持つ fiber から QueryClient を返す", () => {
+		const qc = queryClient();
+		const provider = fiber(0, { memoizedProps: { client: qc } });
+		mountRoot(fiber(3, { child: provider }));
+		expect(findQueryClient()).toBe(qc);
+	});
+
+	it("memoizedProps.value 経由(Context.Provider)でも検出する", () => {
+		const qc = queryClient();
+		const provider = fiber(0, { memoizedProps: { value: qc } });
+		mountRoot(fiber(3, { child: provider }));
+		expect(findQueryClient()).toBe(qc);
+	});
+
+	it("getQueryCache を持たない props は無視し、未検出なら null", () => {
+		const provider = fiber(0, { memoizedProps: { value: { foo: 1 } } });
+		mountRoot(fiber(3, { child: provider }));
+		expect(findQueryClient()).toBeNull();
+	});
+
+	it("client と value の両方が存在するとき client を優先して返す", () => {
+		const qc1 = queryClient();
+		const qc2 = queryClient();
+		const provider = fiber(0, { memoizedProps: { client: qc1, value: qc2 } });
+		mountRoot(fiber(3, { child: provider }));
+		expect(findQueryClient()).toBe(qc1);
+	});
+
+	it("React root が無ければ null", () => {
+		expect(findQueryClient()).toBeNull();
 	});
 });
