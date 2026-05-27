@@ -10,7 +10,7 @@ export const IntervalSchema = v.pipe(v.number(), v.minValue(1));
 
 export const SettingsSchema = v.object({
 	interval: IntervalSchema,
-	spaces: v.array(SpaceConfigSchema),
+	space: SpaceConfigSchema,
 });
 
 export type SpaceConfig = v.InferOutput<typeof SpaceConfigSchema>;
@@ -18,34 +18,19 @@ export type Settings = v.InferOutput<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
 	interval: 1,
-	spaces: [],
+	space: { id: "", apiKey: "" },
 };
-
-export const settingsStorage = storage.defineItem<Settings>("local:settings", {
-	fallback: DEFAULT_SETTINGS,
-});
 
 /**
  * 寛容版スキーマ: 不正なフィールドは例外を投げずに初期値へフォールバックする。
  * - object 以外 → DEFAULT_SETTINGS 全体
  * - interval が不正/欠損 → 既定値
- * - spaces が非配列/欠損 → []
- * - spaces 内の不正な要素 → その要素だけ除外し、正常な要素は維持
+ * - space が不正/欠損 → 既定 space
  */
 const ParsedSettingsSchema = v.fallback(
 	v.object({
 		interval: v.fallback(IntervalSchema, DEFAULT_SETTINGS.interval),
-		spaces: v.fallback(
-			v.pipe(
-				v.array(v.unknown()),
-				v.transform((items) =>
-					items.filter((item): item is SpaceConfig =>
-						v.is(SpaceConfigSchema, item),
-					),
-				),
-			),
-			DEFAULT_SETTINGS.spaces,
-		),
+		space: v.fallback(SpaceConfigSchema, DEFAULT_SETTINGS.space),
 	}),
 	DEFAULT_SETTINGS,
 );
@@ -57,3 +42,26 @@ const ParsedSettingsSchema = v.fallback(
 export function parseSettings(raw: unknown): Settings {
 	return v.parse(ParsedSettingsSchema, raw);
 }
+
+/**
+ * v1 settings(`{ interval, spaces: SpaceConfig[] }`)を v2(`{ interval, space }`)へ
+ * 移行する。複数 space は廃止し先頭のみ引き継ぐ。正規化は parseSettings に委ねる。
+ */
+export function migrateSettingsV1ToV2(old: unknown): Settings {
+	const v1 = (typeof old === "object" && old !== null ? old : {}) as {
+		interval?: unknown;
+		spaces?: unknown;
+	};
+	return parseSettings({
+		interval: v1.interval,
+		space: Array.isArray(v1.spaces) ? v1.spaces[0] : undefined,
+	});
+}
+
+export const settingsStorage = storage.defineItem<Settings>("local:settings", {
+	fallback: DEFAULT_SETTINGS,
+	version: 2,
+	migrations: {
+		2: migrateSettingsV1ToV2,
+	},
+});

@@ -17,8 +17,8 @@ export const App = () => {
 	return (
 		<VarUI onChange={update} values={values}>
 			<VarCategory label="Space">
-				<VarString label="ID" path="spaces[0].id" />
-				<VarString label="API Key" path="spaces[0].apiKey" />
+				<VarString label="ID" path="space.id" />
+				<VarString label="API Key" path="space.apiKey" />
 			</VarCategory>
 			<VarCategory label="Preferences">
 				<VarNumber
