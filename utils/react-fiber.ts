@@ -111,7 +111,9 @@ export function isCommentState(value: unknown): value is CommentState {
 /** TanStack Query QueryClient の、本拡張が触る最小 surface。 */
 export interface QueryClientLike {
 	getQueryCache(): { getAll(): { queryKey: unknown }[] };
-	invalidateQueries(filters?: { queryKey?: unknown }): unknown;
+	invalidateQueries(filters?: {
+		predicate?: (query: { queryKey: unknown }) => boolean;
+	}): unknown;
 }
 
 /** 値が QueryClientLike か(getQueryCache を持つか)を判定する。 */

@@ -1,10 +1,5 @@
+import type { IssueRef } from "./bridge-protocol";
 import type { QueryClientLike } from "./react-fiber";
-
-/** 対象課題を識別する値。 */
-export interface IssueRef {
-	issueKey: string;
-	issueId: number;
-}
 
 /**
  * queryKey が当該課題を参照しているか判定する。
@@ -27,20 +22,17 @@ export function queryKeyMatchesIssue(key: unknown, issue: IssueRef): boolean {
 }
 
 /**
- * query cache を走査し、当該課題を参照する query のみ invalidate する。
- * invalidate した件数を返す(0 なら対象 query 無し)。Backlog が当該 query を内部 API で
- * 再 fetch し、変化したフィールドを自前で再 render する。
+ * 当該課題を参照する query のみを predicate で一括 invalidate する。対象件数を返す
+ * (0 なら invalidate せず no-op)。Backlog が当該 query を内部 API で再 fetch し、変化した
+ * フィールドを自前で再 render する。
  */
 export function revalidateIssueQueries(
 	client: QueryClientLike,
 	issue: IssueRef,
 ): number {
-	let count = 0;
-	for (const query of client.getQueryCache().getAll()) {
-		if (queryKeyMatchesIssue(query.queryKey, issue)) {
-			client.invalidateQueries({ queryKey: query.queryKey });
-			count++;
-		}
-	}
+	const matches = (query: { queryKey: unknown }) =>
+		queryKeyMatchesIssue(query.queryKey, issue);
+	const count = client.getQueryCache().getAll().filter(matches).length;
+	if (count > 0) client.invalidateQueries({ predicate: matches });
 	return count;
 }

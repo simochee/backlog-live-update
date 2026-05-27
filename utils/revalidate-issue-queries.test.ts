@@ -42,32 +42,31 @@ describe("queryKeyMatchesIssue", () => {
 });
 
 describe("revalidateIssueQueries", () => {
-	it("当該課題を参照する query のみ invalidate し件数を返す", () => {
+	it("当該課題を参照する query を predicate で一括 invalidate し件数を返す", () => {
 		const invalidateQueries = vi.fn();
+		const all = [
+			{ queryKey: ["issues", "PLAY_GROUND-47"] },
+			{ queryKey: ["issues", 152881077] },
+			{ queryKey: ["GetInitialComments", { issueId: 152881077 }] },
+			{ queryKey: ["space"] },
+			{ queryKey: ["projectInfo", "PLAY_GROUND"] },
+		];
 		const client = {
-			getQueryCache: () => ({
-				getAll: () => [
-					{ queryKey: ["issues", "PLAY_GROUND-47"] },
-					{ queryKey: ["issues", 152881077] },
-					{ queryKey: ["GetInitialComments", { issueId: 152881077 }] },
-					{ queryKey: ["space"] },
-					{ queryKey: ["projectInfo", "PLAY_GROUND"] },
-				],
-			}),
+			getQueryCache: () => ({ getAll: () => all }),
 			invalidateQueries,
 		};
 
 		const count = revalidateIssueQueries(client, issue);
 
 		expect(count).toBe(3);
-		expect(invalidateQueries).toHaveBeenCalledTimes(3);
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: ["issues", "PLAY_GROUND-47"],
-		});
-		expect(invalidateQueries).toHaveBeenCalledWith({
-			queryKey: ["issues", 152881077],
-		});
-		expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ["space"] });
+		// N 回ではなく predicate 付き 1 call で TanStack に絞り込ませる。
+		expect(invalidateQueries).toHaveBeenCalledTimes(1);
+		const { predicate } = invalidateQueries.mock.calls[0][0];
+		expect(all.filter(predicate)).toEqual([
+			{ queryKey: ["issues", "PLAY_GROUND-47"] },
+			{ queryKey: ["issues", 152881077] },
+			{ queryKey: ["GetInitialComments", { issueId: 152881077 }] },
+		]);
 	});
 
 	it("該当無しなら invalidate せず 0 を返す", () => {
