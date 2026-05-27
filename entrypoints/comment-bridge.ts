@@ -1,4 +1,5 @@
 import { fetchInternalComments } from "../utils/fetch-internal-comments";
+import { highlightComments } from "../utils/highlight-comments";
 import { type CommentState, findCommentStateHook } from "../utils/react-fiber";
 
 /**
@@ -62,6 +63,10 @@ export default defineUnlistedScript(() => {
 				comments: [...current.comments, ...fresh],
 			};
 			found.dispatch(next);
+
+			// 投稿直後と同じ更新ハイライトを新規 comment に付ける。id セレクタで狙うため
+			// React が render 前でも、要素出現時に rule が適用される。
+			highlightComments(fresh.map((c) => c.id));
 		})();
 	});
 });
