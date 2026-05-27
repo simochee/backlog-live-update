@@ -1,19 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { jsonResponse, mockFetch } from "../test/fetch-mock";
 import { fetchInternalComments } from "./fetch-internal-comments";
-
-const mockFetch = (impl: () => Response | Promise<Response>) => {
-	const fn = vi.fn<
-		(
-			input: string | URL | Request,
-			init?: RequestInit,
-		) => Response | Promise<Response>
-	>(() => impl());
-	vi.stubGlobal("fetch", fn);
-	return fn;
-};
-
-const jsonResponse = (body: unknown, ok = true) =>
-	({ ok, json: async () => body }) as unknown as Response;
 
 afterEach(() => {
 	vi.unstubAllGlobals();
