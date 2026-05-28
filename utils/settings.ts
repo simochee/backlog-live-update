@@ -6,7 +6,9 @@ export const SpaceConfigSchema = v.object({
 	apiKey: v.string(),
 });
 
-export const IntervalSchema = v.pipe(v.number(), v.minValue(1));
+export const INTERVAL_OPTIONS = [15, 30, 60, 300, 600] as const;
+
+export const IntervalSchema = v.picklist(INTERVAL_OPTIONS);
 
 export const SettingsSchema = v.object({
 	interval: IntervalSchema,
@@ -17,7 +19,7 @@ export type SpaceConfig = v.InferOutput<typeof SpaceConfigSchema>;
 export type Settings = v.InferOutput<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
-	interval: 1,
+	interval: 60,
 	space: { id: "", apiKey: "" },
 };
 

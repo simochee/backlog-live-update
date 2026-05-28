@@ -181,7 +181,7 @@ export default defineContentScript({
 			keepInDom: true,
 		});
 
-		const intervalMs = interval * 60 * 1000;
+		const intervalMs = interval * 1000;
 		let stopPoll: (() => void) | undefined;
 
 		onElementAppear("#comments", () => {
