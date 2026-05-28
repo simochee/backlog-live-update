@@ -196,6 +196,20 @@ export default defineContentScript({
 		const intervalMs = interval * 1000;
 		let stopPoll: (() => void) | undefined;
 
+		// background へ live 起動状態を伝える(badge 表示用)。tab スコープ管理は
+		// background 側で sender.tab.id を見て行う。
+		const notifyLiveState = (active: boolean) => {
+			debugLog("notify live-state", { active });
+			void browser.runtime
+				.sendMessage({ type: "live-state", active })
+				.catch((err) => debugLog("notify live-state failed", err));
+		};
+
+		// hard navigation / tab close 直前に badge を消すため pagehide で off を送る。
+		// tab close 自体は browser 側で badge state が GC されるが、同 tab 内の hard
+		// navigation で非 issue page へ遷移した際に badge が残るのを防ぐ意図。
+		addEventListener("pagehide", () => notifyLiveState(false));
+
 		onElementAppear("#comments", () => {
 			const issueKey = issueKeyFromPath(location.pathname);
 			if (!issueKey) return;
@@ -212,6 +226,7 @@ export default defineContentScript({
 				}),
 				intervalMs,
 			);
+			notifyLiveState(true);
 		});
 	},
 });
