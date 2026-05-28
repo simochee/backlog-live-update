@@ -1,5 +1,7 @@
+import { applyCommentMetaPatch } from "@/utils/apply-comment-meta-patch";
 import {
 	BRIDGE_EVENT,
+	parseCommentMetaPatchList,
 	parseIssueRef,
 	type StateResponse,
 } from "@/utils/bridge-protocol";
@@ -43,6 +45,7 @@ export default defineUnlistedScript(() => {
 			found: true,
 			issueId,
 			minId: ids.length > 0 ? Math.max(...ids) : 0,
+			recentIds: ids,
 		};
 	};
 
@@ -85,6 +88,24 @@ export default defineUnlistedScript(() => {
 			// React が render 前でも、要素出現時に rule が適用される。
 			highlightComments(fresh.map((c) => c.id));
 		})();
+	});
+
+	script.addEventListener(BRIDGE_EVENT.patchCommentMeta, (event) => {
+		if (!(event instanceof CustomEvent)) return;
+
+		const patches = parseCommentMetaPatchList(event.detail);
+		if (patches.length === 0) return;
+
+		const found = findCommentStateHook();
+		if (!found) {
+			debugLog("bridge: patch-comment-meta no hook");
+			return;
+		}
+
+		const { next, changed } = applyCommentMetaPatch(found.state, patches);
+		if (!changed) return;
+		found.dispatch(next);
+		debugLog("bridge: patched comment meta", { patched: patches.length });
 	});
 
 	script.addEventListener(BRIDGE_EVENT.revalidateIssue, (event) => {

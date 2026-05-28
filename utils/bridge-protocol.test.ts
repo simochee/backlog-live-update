@@ -1,14 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { parseIssueRef, parseStateResponse } from "./bridge-protocol";
+import {
+	parseCommentMetaPatchList,
+	parseIssueRef,
+	parseStateResponse,
+} from "./bridge-protocol";
 
 describe("parseStateResponse", () => {
 	it("found:true の payload を読む", () => {
+		const detail = JSON.stringify({
+			found: true,
+			issueId: 42,
+			minId: 7,
+			recentIds: [1, 2, 7],
+		});
+		expect(parseStateResponse(detail)).toEqual({
+			found: true,
+			issueId: 42,
+			minId: 7,
+			recentIds: [1, 2, 7],
+		});
+	});
+
+	it("recentIds 無しでも読める(後方互換)", () => {
 		const detail = JSON.stringify({ found: true, issueId: 42, minId: 7 });
 		expect(parseStateResponse(detail)).toEqual({
 			found: true,
 			issueId: 42,
 			minId: 7,
 		});
+	});
+
+	it("recentIds に number 以外が混ざっていれば捨てる", () => {
+		const detail = JSON.stringify({
+			found: true,
+			recentIds: [1, "x", 3],
+		});
+		expect(parseStateResponse(detail)).toEqual({ found: true });
 	});
 
 	it("found:false の payload を読む", () => {
@@ -24,6 +51,49 @@ describe("parseStateResponse", () => {
 		["found 欠損", JSON.stringify({ issueId: 1 })],
 	])("%s は found:false へフォールバック", (_label, detail) => {
 		expect(parseStateResponse(detail)).toEqual({ found: false });
+	});
+});
+
+describe("parseCommentMetaPatchList", () => {
+	it("正常 payload を復元する", () => {
+		const detail = JSON.stringify([
+			{
+				commentId: 1,
+				notifications: [{ id: 10, alreadyRead: true }],
+			},
+			{ commentId: 2, notifications: [] },
+		]);
+		expect(parseCommentMetaPatchList(detail)).toEqual([
+			{ commentId: 1, notifications: [{ id: 10, alreadyRead: true }] },
+			{ commentId: 2, notifications: [] },
+		]);
+	});
+
+	it("壊れた要素は捨てて残りを返す", () => {
+		const detail = JSON.stringify([
+			{ commentId: "not number", notifications: [] }, // 捨てる
+			{
+				commentId: 5,
+				notifications: [
+					{ id: 1, alreadyRead: true }, // 残す
+					{ id: "x", alreadyRead: true }, // 捨てる(id 不正)
+					{ id: 2 }, // 捨てる(alreadyRead 欠損)
+					"junk", // 捨てる(object でない)
+				],
+			},
+		]);
+		expect(parseCommentMetaPatchList(detail)).toEqual([
+			{ commentId: 5, notifications: [{ id: 1, alreadyRead: true }] },
+		]);
+	});
+
+	it.each([
+		["非 string", 123],
+		["壊れた JSON", "{bad"],
+		["object でない JSON", JSON.stringify(5)],
+		["配列でない", JSON.stringify({ commentId: 1 })],
+	])("%s は空配列", (_label, detail) => {
+		expect(parseCommentMetaPatchList(detail)).toEqual([]);
 	});
 });
 

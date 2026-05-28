@@ -5,6 +5,7 @@ import {
 	parseStateResponse,
 	type StateResponse,
 } from "@/utils/bridge-protocol";
+import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
 import { debugLog } from "@/utils/debug-log";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
 import { onElementAppear } from "@/utils/on-element-appear";
@@ -14,6 +15,12 @@ import "./style.css";
 
 /** bridge へ state を要求してから応答を諦めるまでの猶予。 */
 const BRIDGE_STATE_TIMEOUT_MS = 3000;
+
+/**
+ * probe で取得する直近 comment 件数。画面末尾 N 件分の通知既読等メタ差分を 1 call で拾うための窓。
+ * 大きいほど巻き戻り耐性が上がるが public API の payload も比例増 → 実用バランスで 20。
+ */
+const PROBE_WINDOW = 20;
 
 /** 課題 1 件を監視するための文脈。 */
 interface IssueWatchContext {
@@ -49,11 +56,16 @@ function requestBridgeState(script: HTMLScriptElement): Promise<StateResponse> {
 }
 
 /**
- * comment probe: bridge から現在 state を取り、「最新 id より新しい comment があるか」だけを
- * 最小ペイロードで public API に問い合わせる。あれば bridge に内部 API での取得・append を
- * 依頼する(実データ取得も注入も MAIN world 側で render-ready に行う)。
+ * comment probe: bridge から現在 state を取り、画面末尾 N 件分の window で public API を 1 call。
+ * 役割は 2 つ:
+ *
+ * - **新規検知**: 取得した最大 id が現末尾より大きければ「新規あり」→ bridge に
+ *   `fetchAppend`(内部 API で render-ready 取得 → append)を依頼する。
+ * - **メタ patch**: 既存 comment の `notifications`(既読フラグ等)に差分があれば、
+ *   `patchCommentMeta` で fiber 上の該当 field のみを直接書き換えさせる。content/changeLog
+ *   等は public API と内部 state で shape が異なる(HTML 整形済か否か)ため触らない。
  */
-async function probeNewComments({
+async function probeAndPatch({
 	backlog,
 	script,
 }: IssueWatchContext): Promise<void> {
@@ -61,13 +73,37 @@ async function probeNewComments({
 		const state = await requestBridgeState(script);
 		if (!state.found || state.issueId == null) return;
 
-		const probe = await backlog.getIssueComments(state.issueId, {
-			minId: state.minId,
-			count: 1,
-			order: "desc",
+		const recentIds = state.recentIds ?? [];
+		const sorted = [...recentIds].sort((a, b) => a - b);
+		const tail = sorted.length > 0 ? sorted[sorted.length - 1] : 0;
+		// 画面末尾 N 件分を含む window を取りたいので、N+1 件目の id を minId(exclusive)に渡す。
+		// それ未満しか持っていなければ 0 から全件。
+		const windowMinId =
+			sorted.length > PROBE_WINDOW
+				? sorted[sorted.length - PROBE_WINDOW - 1]
+				: 0;
+
+		const comments = await backlog.getIssueComments(state.issueId, {
+			minId: windowMinId,
+			count: PROBE_WINDOW,
+			order: "asc",
 		});
-		if (probe.length > 0) {
+		if (comments.length === 0) return;
+
+		const hasNew = comments.some((c) => c.id > tail);
+		if (hasNew) {
 			script.dispatchEvent(new CustomEvent(BRIDGE_EVENT.fetchAppend));
+		}
+
+		// 既存 id についてのみ meta を patch(新規分は fetchAppend が render-ready で持ち込む)。
+		const knownIds = new Set(sorted);
+		const patches = buildCommentMetaPatches(comments, knownIds);
+		if (patches.length > 0) {
+			script.dispatchEvent(
+				new CustomEvent(BRIDGE_EVENT.patchCommentMeta, {
+					detail: JSON.stringify(patches),
+				}),
+			);
 		}
 	} catch {
 		// comment probe 失敗(network / rate limit 等)。issue 監視は続行する。
@@ -116,7 +152,7 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 	void probeIssueUpdated(); // 起動時点の updated を即 baseline 化する。
 
 	return async () => {
-		await probeNewComments(ctx);
+		await probeAndPatch(ctx);
 		await probeIssueUpdated();
 	};
 }

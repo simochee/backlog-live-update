@@ -19,19 +19,36 @@ export const BRIDGE_EVENT = {
 	fetchAppend: "lfb:fetch-append",
 	/** content → bridge: 当該課題の TanStack Query を invalidate させる(`IssueRef`)。 */
 	revalidateIssue: "lfb:revalidate-issue",
+	/** content → bridge: 取得済み comment のメタ(通知既読等)を fiber 上で直接 patch する(`CommentMetaPatch[]`)。 */
+	patchCommentMeta: "lfb:patch-comment-meta",
 } as const;
 
-/** bridge が fiber から読んだ現在の表示 state。content の public API probe 用。 */
+/**
+ * bridge が fiber から読んだ現在の表示 state。content の public API probe 用。
+ * `recentIds` は画面が保持する comment id 全件(順序は画面上の表示順)。content 側で
+ * 末尾 N 件分の window を切るのに使う。
+ */
 export interface StateResponse {
 	found: boolean;
 	issueId?: number;
 	minId?: number;
+	recentIds?: number[];
 }
 
 /** revalidate / 課題識別に使う課題参照。 */
 export interface IssueRef {
 	issueKey: string;
 	issueId: number;
+}
+
+/**
+ * 取得済み comment の「メタ(現状は notification 既読)のみ」を fiber に書き戻すための patch。
+ * comment 本体(content/changelog 等)は public API では render-ready でないため触らず、
+ * shape が安定している notification.alreadyRead のみを id マッチで上書きする。
+ */
+export interface CommentMetaPatch {
+	commentId: number;
+	notifications: { id: number; alreadyRead: boolean }[];
 }
 
 function parseJson(detail: unknown): unknown {
@@ -47,12 +64,19 @@ function parseJson(detail: unknown): unknown {
 export function parseStateResponse(detail: unknown): StateResponse {
 	const parsed = parseJson(detail);
 	if (typeof parsed !== "object" || parsed === null) return { found: false };
-	const { found, issueId, minId } = parsed as Record<string, unknown>;
+	const { found, issueId, minId, recentIds } = parsed as Record<
+		string,
+		unknown
+	>;
 	if (typeof found !== "boolean") return { found: false };
 	return {
 		found,
 		...(typeof issueId === "number" ? { issueId } : {}),
 		...(typeof minId === "number" ? { minId } : {}),
+		...(Array.isArray(recentIds) &&
+		recentIds.every((v) => typeof v === "number")
+			? { recentIds: recentIds as number[] }
+			: {}),
 	};
 }
 
@@ -63,4 +87,30 @@ export function parseIssueRef(detail: unknown): IssueRef | null {
 	const { issueKey, issueId } = parsed as Record<string, unknown>;
 	if (typeof issueKey !== "string" || typeof issueId !== "number") return null;
 	return { issueKey, issueId };
+}
+
+/**
+ * CustomEvent.detail(JSON 文字列)を `CommentMetaPatch[]` へ復元。world 境界越しに
+ * 想定外 shape が来た場合に bridge 側を壊さないよう、要素単位で型を絞り不正要素は捨てる。
+ * 全要素が不正なら空配列を返す(呼び出し側で no-op に倒す)。
+ */
+export function parseCommentMetaPatchList(detail: unknown): CommentMetaPatch[] {
+	const parsed = parseJson(detail);
+	if (!Array.isArray(parsed)) return [];
+	const out: CommentMetaPatch[] = [];
+	for (const item of parsed) {
+		if (typeof item !== "object" || item === null) continue;
+		const { commentId, notifications } = item as Record<string, unknown>;
+		if (typeof commentId !== "number") continue;
+		if (!Array.isArray(notifications)) continue;
+		const cleaned: { id: number; alreadyRead: boolean }[] = [];
+		for (const n of notifications) {
+			if (typeof n !== "object" || n === null) continue;
+			const { id, alreadyRead } = n as Record<string, unknown>;
+			if (typeof id !== "number" || typeof alreadyRead !== "boolean") continue;
+			cleaned.push({ id, alreadyRead });
+		}
+		out.push({ commentId, notifications: cleaned });
+	}
+	return out;
 }
