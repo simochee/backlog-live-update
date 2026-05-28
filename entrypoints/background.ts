@@ -9,10 +9,9 @@
 
 import { debugLog } from "@/utils/debug-log";
 
-// 空白文字を渡すと badge は表示されるが text は見えない(空文字だと badge 自体が消える)。
-// icon の #4caf93 (teal-green) に対し HSL 180°回転寄り(やや赤寄せ)の rose-red を当てる。
+// 空白文字 + 赤背景。空文字だと badge 自体が描画されないため text は " " 固定。
 const BADGE_TEXT = " ";
-const BADGE_BACKGROUND_COLOR = "#c25462";
+const BADGE_BACKGROUND_COLOR = "#f42858";
 
 interface LiveStateMessage {
 	type: "live-state";
