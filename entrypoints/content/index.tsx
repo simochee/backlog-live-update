@@ -174,12 +174,12 @@ export default defineContentScript({
 
 	async main() {
 		const { interval, space } = parseSettings(await settingsStorage.getValue());
-		const [currentSpaceId] = location.hostname.split(".");
+		const [currentSpaceKey] = location.hostname.split(".");
 
-		if (!space.id || space.id !== currentSpaceId) return;
+		if (!space.key || space.key !== currentSpaceKey) return;
 
 		debugLog("content live setup start", {
-			spaceId: space.id,
+			spaceKey: space.key,
 			host: location.hostname,
 		});
 

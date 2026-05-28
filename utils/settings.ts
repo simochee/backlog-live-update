@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { storage } from "#imports";
 
 export const SpaceConfigSchema = v.object({
-	id: v.string(),
+	key: v.string(),
 	apiKey: v.string(),
 });
 
@@ -20,7 +20,7 @@ export type Settings = v.InferOutput<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
 	interval: 60,
-	space: { id: "", apiKey: "" },
+	space: { key: "", apiKey: "" },
 };
 
 /**
@@ -49,21 +49,42 @@ export function parseSettings(raw: unknown): Settings {
  * v1 settings(`{ interval, spaces: SpaceConfig[] }`)を v2(`{ interval, space }`)へ
  * 移行する。複数 space は廃止し先頭のみ引き継ぐ。正規化は parseSettings に委ねる。
  */
-export function migrateSettingsV1ToV2(old: unknown): Settings {
+export function migrateSettingsV1ToV2(old: unknown): unknown {
 	const v1 = (typeof old === "object" && old !== null ? old : {}) as {
 		interval?: unknown;
 		spaces?: unknown;
 	};
-	return parseSettings({
+	return {
 		interval: v1.interval,
 		space: Array.isArray(v1.spaces) ? v1.spaces[0] : undefined,
+	};
+}
+
+/**
+ * v2 settings(`space.id`)を v3(`space.key`)へ rename する。Backlog 公式用語に揃える。
+ */
+export function migrateSettingsV2ToV3(old: unknown): Settings {
+	const v2 = (typeof old === "object" && old !== null ? old : {}) as {
+		interval?: unknown;
+		space?: unknown;
+	};
+	const space = (
+		typeof v2.space === "object" && v2.space !== null ? v2.space : {}
+	) as { id?: unknown; key?: unknown; apiKey?: unknown };
+	return parseSettings({
+		interval: v2.interval,
+		space: {
+			key: space.key ?? space.id,
+			apiKey: space.apiKey,
+		},
 	});
 }
 
 export const settingsStorage = storage.defineItem<Settings>("local:settings", {
 	fallback: DEFAULT_SETTINGS,
-	version: 2,
+	version: 3,
 	migrations: {
 		2: migrateSettingsV1ToV2,
+		3: migrateSettingsV2ToV3,
 	},
 });
