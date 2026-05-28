@@ -21,6 +21,8 @@ export const BRIDGE_EVENT = {
 	revalidateIssue: "lfb:revalidate-issue",
 	/** content → bridge: 取得済み comment のメタ(通知既読等)を fiber 上で直接 patch する(`CommentMetaPatch[]`)。 */
 	patchCommentMeta: "lfb:patch-comment-meta",
+	/** content → bridge: comment ごとの star 配列を fiber 上 starMap に直接 patch する(`StarMapPatch`)。 */
+	patchStarMap: "lfb:patch-star-map",
 } as const;
 
 /**
@@ -49,6 +51,24 @@ export interface IssueRef {
 export interface CommentMetaPatch {
 	commentId: number;
 	notifications: { id: number; alreadyRead: boolean }[];
+}
+
+/**
+ * comment 用 starMap の patch payload。`byCommentId` は probe で見えている comment id 群と
+ * その star 配列(画面 starMap と同 shape の要素配列)。bridge 側で「現 starMap と差分が
+ * あるものだけ」差し替え、対象外 commentId(probe window 外)はそのまま残す。
+ */
+export interface StarMapPatch {
+	byCommentId: Record<
+		string,
+		{
+			id: number;
+			url: string;
+			userId: number;
+			userName: string;
+			userIcon: string;
+		}[]
+	>;
 }
 
 function parseJson(detail: unknown): unknown {
@@ -87,6 +107,45 @@ export function parseIssueRef(detail: unknown): IssueRef | null {
 	const { issueKey, issueId } = parsed as Record<string, unknown>;
 	if (typeof issueKey !== "string" || typeof issueId !== "number") return null;
 	return { issueKey, issueId };
+}
+
+/**
+ * CustomEvent.detail(JSON 文字列)を `StarMapPatch` へ復元。要素単位で型を絞り、不正な
+ * star item は捨てる。空(全 commentId 0 件)は no-op として呼出側で扱う。
+ */
+export function parseStarMapPatch(detail: unknown): StarMapPatch | null {
+	const parsed = parseJson(detail);
+	if (typeof parsed !== "object" || parsed === null) return null;
+	const { byCommentId } = parsed as Record<string, unknown>;
+	if (typeof byCommentId !== "object" || byCommentId === null) return null;
+	const out: StarMapPatch["byCommentId"] = {};
+	for (const [cid, items] of Object.entries(
+		byCommentId as Record<string, unknown>,
+	)) {
+		if (!Array.isArray(items)) continue;
+		const cleaned: StarMapPatch["byCommentId"][string] = [];
+		for (const it of items) {
+			if (typeof it !== "object" || it === null) continue;
+			const item = it as Record<string, unknown>;
+			if (
+				typeof item.id !== "number" ||
+				typeof item.url !== "string" ||
+				typeof item.userId !== "number" ||
+				typeof item.userName !== "string" ||
+				typeof item.userIcon !== "string"
+			)
+				continue;
+			cleaned.push({
+				id: item.id,
+				url: item.url,
+				userId: item.userId,
+				userName: item.userName,
+				userIcon: item.userIcon,
+			});
+		}
+		out[cid] = cleaned;
+	}
+	return { byCommentId: out };
 }
 
 /**

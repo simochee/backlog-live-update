@@ -1,8 +1,10 @@
 import { applyCommentMetaPatch } from "@/utils/apply-comment-meta-patch";
+import { applyStarMapPatch } from "@/utils/apply-star-map-patch";
 import {
 	BRIDGE_EVENT,
 	parseCommentMetaPatchList,
 	parseIssueRef,
+	parseStarMapPatch,
 	type StateResponse,
 } from "@/utils/bridge-protocol";
 import { debugLog } from "@/utils/debug-log";
@@ -10,6 +12,7 @@ import { fetchInternalComments } from "@/utils/fetch-internal-comments";
 import { highlightComments } from "@/utils/highlight-comments";
 import {
 	type CommentState,
+	findCommentStarMapHook,
 	findCommentStateHook,
 	findQueryClient,
 } from "@/utils/react-fiber";
@@ -106,6 +109,26 @@ export default defineUnlistedScript(() => {
 		if (!changed) return;
 		found.dispatch(next);
 		debugLog("bridge: patched comment meta", { patched: patches.length });
+	});
+
+	script.addEventListener(BRIDGE_EVENT.patchStarMap, (event) => {
+		if (!(event instanceof CustomEvent)) return;
+
+		const patch = parseStarMapPatch(event.detail);
+		if (!patch || Object.keys(patch.byCommentId).length === 0) return;
+
+		const found = findCommentStarMapHook();
+		if (!found) {
+			debugLog("bridge: patch-star-map no hook");
+			return;
+		}
+
+		const { next, changed } = applyStarMapPatch(found.state, patch);
+		if (!changed) return;
+		found.dispatch(next);
+		debugLog("bridge: patched star map", {
+			patched: Object.keys(patch.byCommentId).length,
+		});
 	});
 
 	script.addEventListener(BRIDGE_EVENT.revalidateIssue, (event) => {

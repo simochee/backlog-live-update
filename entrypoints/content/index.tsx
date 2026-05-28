@@ -6,6 +6,7 @@ import {
 	type StateResponse,
 } from "@/utils/bridge-protocol";
 import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
+import { buildStarMapPatch } from "@/utils/build-star-map-patch";
 import { debugLog } from "@/utils/debug-log";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
 import { onElementAppear } from "@/utils/on-element-appear";
@@ -102,6 +103,17 @@ async function probeAndPatch({
 			script.dispatchEvent(
 				new CustomEvent(BRIDGE_EVENT.patchCommentMeta, {
 					detail: JSON.stringify(patches),
+				}),
+			);
+		}
+
+		// 既存 id について star もまとめて patch(starMap key は string)。
+		const knownIdStrs = new Set(sorted.map((n) => String(n)));
+		const starPatch = buildStarMapPatch(comments, knownIdStrs);
+		if (Object.keys(starPatch.byCommentId).length > 0) {
+			script.dispatchEvent(
+				new CustomEvent(BRIDGE_EVENT.patchStarMap, {
+					detail: JSON.stringify(starPatch),
 				}),
 			);
 		}

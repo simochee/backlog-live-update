@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	parseCommentMetaPatchList,
 	parseIssueRef,
+	parseStarMapPatch,
 	parseStateResponse,
 } from "./bridge-protocol";
 
@@ -94,6 +95,62 @@ describe("parseCommentMetaPatchList", () => {
 		["配列でない", JSON.stringify({ commentId: 1 })],
 	])("%s は空配列", (_label, detail) => {
 		expect(parseCommentMetaPatchList(detail)).toEqual([]);
+	});
+});
+
+describe("parseStarMapPatch", () => {
+	it("正常 payload を復元する", () => {
+		const detail = JSON.stringify({
+			byCommentId: {
+				"100": [
+					{
+						id: 1,
+						url: "u",
+						userId: 2,
+						userName: "Alice",
+						userIcon: "ic",
+					},
+				],
+				"200": [],
+			},
+		});
+		expect(parseStarMapPatch(detail)).toEqual({
+			byCommentId: {
+				"100": [
+					{
+						id: 1,
+						url: "u",
+						userId: 2,
+						userName: "Alice",
+						userIcon: "ic",
+					},
+				],
+				"200": [],
+			},
+		});
+	});
+
+	it("不正 star item は捨てる(他は残す)", () => {
+		const detail = JSON.stringify({
+			byCommentId: {
+				"100": [
+					{ id: 1, url: "u", userId: 2, userName: "A", userIcon: "ic" },
+					{ id: "x", url: "u", userId: 2, userName: "A", userIcon: "ic" }, // id 非 number
+					{ id: 3, url: 7, userId: 2, userName: "A", userIcon: "ic" }, // url 非 string
+					"junk",
+				],
+			},
+		});
+		const got = parseStarMapPatch(detail);
+		expect(got?.byCommentId["100"]).toHaveLength(1);
+	});
+
+	it.each([
+		["非 string", 123],
+		["object でない", JSON.stringify("oops")],
+		["byCommentId 欠損", JSON.stringify({})],
+	])("%s は null", (_label, detail) => {
+		expect(parseStarMapPatch(detail)).toBeNull();
 	});
 });
 

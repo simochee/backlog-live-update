@@ -33,7 +33,9 @@ export interface CommentState {
 
 interface Hook {
 	memoizedState: unknown;
-	queue: { dispatch: (action: CommentState) => void } | null;
+	// 各 hook で扱う state 型が異なるため、生 dispatch は `unknown` を受ける形で抽象化し、
+	// 呼出側で型を絞った wrapper(`findCommentStateHook` 等)で型安全に渡す。
+	queue: { dispatch: (action: unknown) => void } | null;
 	next: Hook | null;
 }
 
@@ -153,9 +155,88 @@ export function findCommentStateHook(): CommentStateHook | null {
 		if (!FUNCTION_COMPONENT_TAGS.has(fiber.tag)) continue;
 		for (const hook of walkHooks(fiber)) {
 			if (hook.queue && isCommentState(hook.memoizedState)) {
-				return { dispatch: hook.queue.dispatch, state: hook.memoizedState };
+				return {
+					dispatch: hook.queue.dispatch as (a: CommentState) => void,
+					state: hook.memoizedState,
+				};
 			}
 		}
 	}
 	return null;
+}
+
+/**
+ * comment 1 件分の star を表す最小 shape。`useIssueCommentStars` 系の hook が starMap の
+ * 値として保持する形と一致する(`/star/list` レスポンスの要素そのまま)。`comment` は
+ * 既存実装では常に null で機能していないため、本拡張では null 固定で構築する。
+ */
+export interface CommentStarItem {
+	id: number;
+	url: string;
+	userId: number;
+	userName: string;
+	userIcon: string;
+	comment: unknown;
+}
+
+/** commentId(文字列キー)→ star 配列 の map。空 entry は通常持たない。 */
+export type CommentStarMap = Record<string, CommentStarItem[]>;
+
+/** 見つかった star map hook の dispatch と現在の map。 */
+export interface CommentStarMapHook {
+	dispatch: (action: CommentStarMap) => void;
+	state: CommentStarMap;
+}
+
+/**
+ * 値が CommentStarMap らしい plain object か判定する。
+ *
+ * - plain object(Map / Array ではない)
+ * - 全 value が Array で、各要素が `{ id: number, url: string, userId: number }` を満たす
+ *
+ * 空 map(comment はあるが star ゼロ)もありえるため「全 entry が条件を満たす」だけを
+ * 要求し、size は問わない。ただし完全な空 object も成立してしまうため、呼出側の hook
+ * 探索では「同等な物が複数 hit する場合先頭を採用」する pre-order DFS で安定検出する。
+ */
+export function isCommentStarMap(value: unknown): value is CommentStarMap {
+	if (typeof value !== "object" || value === null) return false;
+	if (Array.isArray(value)) return false;
+	if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+	for (const v of Object.values(value)) {
+		if (!Array.isArray(v)) return false;
+		for (const item of v) {
+			if (typeof item !== "object" || item === null) return false;
+			const it = item as Record<string, unknown>;
+			if (typeof it.id !== "number") return false;
+			if (typeof it.url !== "string") return false;
+			if (typeof it.userId !== "number") return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * fiber tree を走査し、comment 用 starMap を保持する useState hook を見つける。
+ * 完全 empty object も成立する判定だが、本拡張は「entry を最低 1 つ持つ」hook を
+ * 優先採用するため、empty に hit したら walk を続けて非 empty を探す。
+ */
+export function findCommentStarMapHook(): CommentStarMapHook | null {
+	const root = findRootFiber();
+	if (!root) return null;
+	let emptyFallback: CommentStarMapHook | null = null;
+	for (const fiber of walkFibers(root)) {
+		if (!FUNCTION_COMPONENT_TAGS.has(fiber.tag)) continue;
+		for (const hook of walkHooks(fiber)) {
+			if (!hook.queue) continue;
+			const s = hook.memoizedState;
+			if (!isCommentStarMap(s)) continue;
+			const found: CommentStarMapHook = {
+				dispatch: hook.queue.dispatch as unknown as (a: CommentStarMap) => void,
+				state: s,
+			};
+			if (Object.keys(s).length > 0) return found;
+			if (!emptyFallback) emptyFallback = found;
+		}
+	}
+	return emptyFallback;
 }
