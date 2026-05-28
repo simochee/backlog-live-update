@@ -195,6 +195,7 @@ export default defineContentScript({
 
 		const intervalMs = interval * 1000;
 		let stopPoll: (() => void) | undefined;
+		let pollAlive = false;
 
 		// background へ live 起動状態を伝える(badge 表示用)。tab スコープ管理は
 		// background 側で sender.tab.id を見て行う。
@@ -205,10 +206,35 @@ export default defineContentScript({
 				.catch((err) => debugLog("notify live-state failed", err));
 		};
 
-		// hard navigation / tab close 直前に badge を消すため pagehide で off を送る。
-		// tab close 自体は browser 側で badge state が GC されるが、同 tab 内の hard
-		// navigation で非 issue page へ遷移した際に badge が残るのを防ぐ意図。
+		// polling は `pollWhileVisible` 内で tab hidden 時に timer を clear する。
+		// badge も同タイミングで OFF にする → visibility と pollAlive の AND を送る。
+		const syncLiveState = () => {
+			notifyLiveState(pollAlive && document.visibilityState === "visible");
+		};
+
+		addEventListener("visibilitychange", syncLiveState);
+		// hard navigation / tab close 直前に badge を消す(tab close 自体は browser
+		// 側で badge state が GC されるが、同 tab 内 hard navigation 対策)。
 		addEventListener("pagehide", () => notifyLiveState(false));
+
+		const disposePoll = () => {
+			stopPoll?.();
+			stopPoll = undefined;
+			pollAlive = false;
+			syncLiveState();
+		};
+
+		// SPA navigation 検出: content script は isolated world → MAIN world の
+		// history.pushState を patch できない。pathname を軽量 polling し、課題詳細
+		// から離脱した瞬間に polling を止めて badge を OFF にする。
+		let lastPath = location.pathname;
+		setInterval(() => {
+			if (location.pathname === lastPath) return;
+			lastPath = location.pathname;
+			if (!pollAlive) return;
+			if (issueKeyFromPath(lastPath) != null) return;
+			disposePoll();
+		}, 500);
 
 		onElementAppear("#comments", () => {
 			const issueKey = issueKeyFromPath(location.pathname);
@@ -226,7 +252,8 @@ export default defineContentScript({
 				}),
 				intervalMs,
 			);
-			notifyLiveState(true);
+			pollAlive = true;
+			syncLiveState();
 		});
 	},
 });
