@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	type CommentState,
+	findCommentStarMapHook,
 	findCommentStateHook,
 	findQueryClient,
 	isCommentState,
@@ -134,6 +135,76 @@ describe("findCommentStateHook", () => {
 
 	it("React root が無ければ null", () => {
 		expect(findCommentStateHook()).toBeNull();
+	});
+});
+
+describe("findCommentStarMapHook", () => {
+	const star = (commentId: number) => ({
+		id: 100,
+		url: `https://example.backlog.com/view/A-1#comment-${commentId}`,
+		userId: 1,
+		userName: "alice",
+		userIcon: "NulabAccountIcon.action?userId=1&name=large",
+		comment: null,
+	});
+
+	/** `useStarsForIssueComments` と同じく starMap → 読み込みキューの順で hook を並べる。 */
+	const starHooks = (starMap: unknown) => {
+		const dispatch = vi.fn();
+		const loadingQueue = hook({
+			memoizedState: { isLoading: false, queue: [] },
+			queue: { dispatch: vi.fn() },
+		});
+		const starMapHook = hook({
+			memoizedState: starMap,
+			queue: { dispatch },
+			next: loadingQueue,
+		});
+		return { head: starMapHook, dispatch };
+	};
+
+	it("star が 1 件も無い課題でも、先に出る無関係な空 object state ではなく starMap を返す", () => {
+		const unrelatedEmpty = hook({
+			memoizedState: {},
+			queue: { dispatch: vi.fn() },
+		});
+		const header = fiber(0, { memoizedState: unrelatedEmpty });
+		const starMap = {};
+		const { head, dispatch } = starHooks(starMap);
+		header.sibling = fiber(0, { memoizedState: head });
+		mountRoot(fiber(3, { child: header }));
+
+		const found = findCommentStarMapHook();
+
+		expect(found?.state).toBe(starMap);
+		found?.dispatch({ "7": [star(7)] });
+		expect(dispatch).toHaveBeenCalledWith({ "7": [star(7)] });
+	});
+
+	it("starMap が空でも、後に出る配列だけを持つ state ではなく starMap を返す", () => {
+		const starMap = {};
+		const { head } = starHooks(starMap);
+		const form = hook({
+			memoizedState: { userIds: [] },
+			queue: { dispatch: vi.fn() },
+		});
+		const viewIssue = fiber(0, {
+			memoizedState: head,
+			child: fiber(0, { memoizedState: form }),
+		});
+		mountRoot(fiber(3, { child: viewIssue }));
+
+		expect(findCommentStarMapHook()?.state).toBe(starMap);
+	});
+
+	it("読み込みキューが後に続かない starMap 形の state しか無ければ null", () => {
+		const lone = hook({
+			memoizedState: { "7": [star(7)] },
+			queue: { dispatch: vi.fn() },
+		});
+		mountRoot(fiber(3, { child: fiber(0, { memoizedState: lone }) }));
+
+		expect(findCommentStarMapHook()).toBeNull();
 	});
 });
 

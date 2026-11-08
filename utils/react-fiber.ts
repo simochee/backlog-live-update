@@ -195,8 +195,8 @@ export interface CommentStarMapHook {
  * - 全 value が Array で、各要素が `{ id: number, url: string, userId: number }` を満たす
  *
  * 空 map(comment はあるが star ゼロ)もありえるため「全 entry が条件を満たす」だけを
- * 要求し、size は問わない。ただし完全な空 object も成立してしまうため、呼出側の hook
- * 探索では「同等な物が複数 hit する場合先頭を採用」する pre-order DFS で安定検出する。
+ * 要求し、size は問わない。そのため空 object や配列だけを持つ無関係な state も通る。
+ * hook の特定には `findCommentStarMapHook` の隣接 state 判定を併用すること。
  */
 export function isCommentStarMap(value: unknown): value is CommentStarMap {
 	if (typeof value !== "object" || value === null) return false;
@@ -216,27 +216,37 @@ export function isCommentStarMap(value: unknown): value is CommentStarMap {
 }
 
 /**
+ * star を取得する hook(`useStarsForIssueComments`)が starMap の直後に持つ
+ * `useState<{ isLoading: boolean; queue: Comment[][] }>` の形か判定する。
+ */
+function isStarLoadingQueue(value: unknown): boolean {
+	if (typeof value !== "object" || value === null) return false;
+	const v = value as Record<string, unknown>;
+	return typeof v.isLoading === "boolean" && Array.isArray(v.queue);
+}
+
+/**
  * fiber tree を走査し、comment 用 starMap を保持する useState hook を見つける。
- * 完全 empty object も成立する判定だが、本拡張は「entry を最低 1 つ持つ」hook を
- * 優先採用するため、empty に hit したら walk を続けて非 empty を探す。
+ * starMap 形の state のうち、次の hook が star 読み込みキューであるものだけを採用する。
  */
 export function findCommentStarMapHook(): CommentStarMapHook | null {
 	const root = findRootFiber();
 	if (!root) return null;
-	let emptyFallback: CommentStarMapHook | null = null;
 	for (const fiber of walkFibers(root)) {
 		if (!FUNCTION_COMPONENT_TAGS.has(fiber.tag)) continue;
 		for (const hook of walkHooks(fiber)) {
 			if (!hook.queue) continue;
 			const s = hook.memoizedState;
 			if (!isCommentStarMap(s)) continue;
-			const found: CommentStarMapHook = {
+			// starMap の形だけでは、star が 1 件も無い課題の `{}` と無関係な空 object や
+			// 配列だけを持つ state を区別できない。形だけで選ぶと別 component の state に
+			// patch を書き込み、画面のスター数が変わらなくなる(issue #1)。
+			if (!isStarLoadingQueue(hook.next?.memoizedState)) continue;
+			return {
 				dispatch: hook.queue.dispatch as unknown as (a: CommentStarMap) => void,
 				state: s,
 			};
-			if (Object.keys(s).length > 0) return found;
-			if (!emptyFallback) emptyFallback = found;
 		}
 	}
-	return emptyFallback;
+	return null;
 }
