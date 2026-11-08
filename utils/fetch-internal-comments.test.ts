@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("fetchInternalComments", () => {
-	it("issueId と limit を含む GetInitialComments.action を叩く", async () => {
+	it("指定した課題のコメントを指定件数まで取得する", async () => {
 		const fn = mockFetch(() => jsonResponse({ comments: [] }));
 
 		await fetchInternalComments(42, 50);
@@ -29,12 +29,12 @@ describe("fetchInternalComments", () => {
 		expect(comments).toEqual([{ id: 1 }, { id: 2 }]);
 	});
 
-	it("res.ok が false なら null", async () => {
+	it("HTTP エラーではコメントを返さない", async () => {
 		mockFetch(() => jsonResponse({ comments: [] }, false));
 		expect(await fetchInternalComments(42)).toBeNull();
 	});
 
-	it("fetch が throw したら null", async () => {
+	it("通信に失敗したら情報を返さない", async () => {
 		mockFetch(() => {
 			throw new Error("network");
 		});

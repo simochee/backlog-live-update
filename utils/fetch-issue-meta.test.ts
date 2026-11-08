@@ -35,12 +35,12 @@ describe("fetchIssueMeta", () => {
 		});
 	});
 
-	it("res.ok が false なら null", async () => {
+	it("HTTP エラーでは課題情報を返さない", async () => {
 		mockFetch(() => jsonResponse({ id: 42, updated: "x" }, false));
 		expect(await fetchIssueMeta("h", "K", "PROJ-1")).toBeNull();
 	});
 
-	it("fetch が throw したら null", async () => {
+	it("通信に失敗したら情報を返さない", async () => {
 		mockFetch(() => {
 			throw new Error("network");
 		});
