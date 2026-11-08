@@ -118,6 +118,13 @@ describe("ホストに対応する設定", () => {
 			);
 		expect(findSpaceForHost(settings, "missing.backlog.com")).toBeUndefined();
 	});
+	it("大文字を含む保存済みキーも読み込み時に小文字へそろいホスト名と一致する", () => {
+		const parsed = parseSettings({ spaces: [{ ...space, key: "NuLab" }] });
+		expect(parsed.spaces[0]?.key).toBe("nulab");
+		expect(findSpaceForHost(parsed, "NuLab.backlog.jp")?.apiKey).toBe(
+			space.apiKey,
+		);
+	});
 	it("無効なスペースには実効設定を返さない", () => {
 		expect(
 			effectiveConfigForHost(
@@ -142,10 +149,10 @@ describe("parseSpaceKeyInput", () => {
 		])
 			expect(parseSpaceKeyInput(input)).toBe("nulab");
 	});
-	it("キーの大文字小文字を変更しない", () => {
-		expect(parseSpaceKeyInput("Team-1")).toBe("Team-1");
+	it("ホスト名と同じく大文字小文字を区別せず小文字のキーにそろえる", () => {
+		expect(parseSpaceKeyInput("Team-1")).toBe("team-1");
 		expect(parseSpaceKeyInput("https://Team-1.backlog.jp/view/ABC-1")).toBe(
-			"Team-1",
+			"team-1",
 		);
 	});
 	it("外部 URL と不正な入力を受け付けない", () => {
