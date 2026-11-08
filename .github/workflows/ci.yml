@@ -20,7 +20,6 @@ jobs:
           cache: true
           run-install: false
       - run: vp install --frozen-lockfile
-      # pre-push と同じ 3 チェック。hook を --no-verify で飛ばしても CI が守る。
       - run: vp exec biome ci --no-errors-on-unmatched .
       - run: vp run compile
       - run: vp test run
