@@ -1,7 +1,89 @@
-@import "react-var-ui/index.css";
+:root {
+	color-scheme: dark;
+	--background: #22222a;
+	--surface: #303039;
+	--text: #f1f1f4;
+	--muted: #bcbcc8;
+	--border: #555563;
+	--accent: #79dbc3;
+	--error: #ffb0b0;
+	font-family: sans-serif;
+	font-size: 13px;
+	color: var(--text);
+	background: var(--background);
+}
+
+* {
+	box-sizing: border-box;
+}
 
 body {
 	width: 320px;
-	background: #22222a;
 	margin: 0;
+}
+
+main {
+	padding: 16px;
+}
+
+section + section {
+	margin-top: 20px;
+	border-top: 1px solid var(--border);
+	padding-top: 16px;
+}
+
+h2 {
+	margin: 0 0 12px;
+	font-size: 14px;
+}
+
+label {
+	display: block;
+	margin: 12px 0 6px;
+	color: var(--muted);
+}
+
+input,
+select,
+button {
+	min-height: 34px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 6px 8px;
+	color: var(--text);
+	background: var(--surface);
+	font: inherit;
+}
+
+input,
+select {
+	width: 100%;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.secret-field {
+	display: flex;
+	gap: 6px;
+}
+
+.secret-field input {
+	min-width: 0;
+}
+
+button {
+	cursor: pointer;
+}
+
+button:hover {
+	border-color: var(--accent);
+}
+
+[role="alert"] {
+	color: var(--error);
 }
