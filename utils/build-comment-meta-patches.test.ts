@@ -7,7 +7,7 @@ describe("buildCommentMetaPatches", () => {
 			[
 				{ id: 1, notifications: [{ id: 10, resourceAlreadyRead: false }] },
 				{ id: 2, notifications: [] },
-				{ id: 3, notifications: [{ id: 30, resourceAlreadyRead: true }] }, // 画面に無い → 捨てる
+				{ id: 3, notifications: [{ id: 30, resourceAlreadyRead: true }] },
 			],
 			new Set([1, 2]),
 		);

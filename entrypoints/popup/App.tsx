@@ -5,7 +5,7 @@ import {
 	settingsStorage,
 } from "@/utils/settings";
 
-// Suspense retries must reuse the same promise instead of restarting the read.
+// render 内で読み直すと Suspense の再試行ごとに Promise が変わるため、ここで共有する。
 const settingsPromise = settingsStorage.getValue();
 
 function formatInterval(seconds: number): string {

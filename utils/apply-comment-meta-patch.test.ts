@@ -45,7 +45,6 @@ describe("applyCommentMetaPatch", () => {
 			{ notificationId: 10, alreadyRead: true, extra: "x" },
 			{ notificationId: 11, alreadyRead: false },
 		]);
-		// 他 comment は触らない(参照同一)
 		expect(next.comments[1]).toBe(state.comments[1]);
 		expect(next.comments[2]).toBe(state.comments[2]);
 	});
@@ -71,11 +70,11 @@ describe("applyCommentMetaPatch", () => {
 		const state = buildState();
 		const { next, changed } = applyCommentMetaPatch(state, [
 			{
-				commentId: 2, // notifyResource 空 → 何も変わらない
+				commentId: 2,
 				notifications: [{ id: 999, alreadyRead: true }],
 			},
 			{
-				commentId: 99, // 存在しない comment → 無視
+				commentId: 99,
 				notifications: [{ id: 1, alreadyRead: true }],
 			},
 		]);

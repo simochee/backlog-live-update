@@ -26,7 +26,6 @@ describe("applyStarMapPatch", () => {
 		});
 		expect(changed).toBe(true);
 		expect(next["100"]).toHaveLength(2);
-		// patch 対象外
 		expect(next["200"]).toBe(current["200"]);
 	});
 

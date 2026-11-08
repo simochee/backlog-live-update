@@ -1,6 +1,5 @@
 import { vi } from "vite-plus/test";
 
-/** グローバル `fetch` を差し替え、呼び出し記録付きの mock を返す。 */
 export function mockFetch(impl: () => Response | Promise<Response>) {
 	const fn = vi.fn<
 		(
@@ -12,7 +11,6 @@ export function mockFetch(impl: () => Response | Promise<Response>) {
 	return fn;
 }
 
-/** `ok` と `json()` だけを備えた最小の Response ライク。 */
 export function jsonResponse(body: unknown, ok = true): Response {
 	return {
 		ok,

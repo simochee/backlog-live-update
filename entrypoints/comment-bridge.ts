@@ -18,26 +18,12 @@ import {
 } from "@/utils/react-fiber";
 import { revalidateIssueQueries } from "@/utils/revalidate-issue-queries";
 
-/**
- * MAIN world(ページの JS context)で動く bridge。isolated content script から
- * `injectScript` され、CustomEvent で双方向通信する。event 名・payload 型・parser は
- * `utils/bridge-protocol.ts` に集約しており、本 module はその 3 listener の実装を持つ。
- *
- * - `requestState` 受信 → fiber から現在の issueId と最新 comment id(minId)を読み取り
- *   `state` で返す(content script 側の public API polling 用)。
- * - `fetchAppend` 受信 → 内部 API で render-ready な comment を取得し、現在の state に
- *   dedup して append する。cookie 認証の fetch を page context で行うため、取得も注入も
- *   この world 内で完結させる。
- * - `revalidateIssue` 受信 → fiber から QueryClient を取得し、当該課題に関連する
- *   TanStack Query を invalidate する(Backlog 自身に再 fetch・再 render させる)。
- */
 export default defineUnlistedScript(() => {
 	const script = document.currentScript;
 	if (!script) return;
 
 	debugLog("bridge: injected into MAIN world");
 
-	/** fiber から現在の表示 state を読み、content の probe 用 `StateResponse` を組む。 */
 	const readStateResponse = (): StateResponse => {
 		const found = findCommentStateHook();
 		if (!found) return { found: false };
@@ -67,7 +53,7 @@ export default defineUnlistedScript(() => {
 			const comments = await fetchInternalComments(before.state.issueId);
 			if (!comments) return;
 
-			// fetch 中に画面側が更新している可能性があるため、append 直前に再読み取りする。
+			// 通信中にページの state が変わり得るため、取得前の state へは追記しない。
 			const found = findCommentStateHook();
 			if (!found) return;
 
@@ -86,8 +72,6 @@ export default defineUnlistedScript(() => {
 			};
 			found.dispatch(next);
 
-			// 投稿直後と同じ更新ハイライトを新規 comment に付ける。id セレクタで狙うため
-			// React が render 前でも、要素出現時に rule が適用される。
 			highlightComments(fresh.map((c) => c.id));
 		})();
 	});
@@ -133,7 +117,6 @@ export default defineUnlistedScript(() => {
 	script.addEventListener(BRIDGE_EVENT.revalidateIssue, (event) => {
 		if (!(event instanceof CustomEvent)) return;
 
-		// 自拡張が送る JSON。壊れていれば no-op。
 		const issue = parseIssueRef(event.detail);
 		if (!issue) {
 			debugLog("bridge: revalidate-issue bad payload", event.detail);
@@ -156,7 +139,6 @@ export default defineUnlistedScript(() => {
 				invalidated: count,
 			});
 			if (count === 0) {
-				// 何も match しなかった → queryKey 形状を確認するため全 key を出す。
 				debugLog(
 					"bridge: no match, all queryKeys",
 					client
@@ -166,7 +148,6 @@ export default defineUnlistedScript(() => {
 				);
 			}
 		} catch (err) {
-			// 未文書の React/QueryClient 内部構造依存。壊れても静かに no-op し画面を壊さない。
 			debugLog("bridge: invalidate failed", err);
 		}
 	});
