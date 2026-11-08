@@ -1,0 +1,8 @@
+{
+	"extName": {
+		"message": "Backlog Live Update"
+	},
+	"extDescription": {
+		"message": "Updates open Backlog issues and pull requests without reloading."
+	}
+}
