@@ -13,7 +13,6 @@ import { createLiveStateMessage } from "@/utils/live-state-message";
 import { onElementAppear } from "@/utils/on-element-appear";
 import { pollWhileVisible } from "@/utils/poll-while-visible";
 import { parseSettings, settingsStorage } from "@/utils/settings";
-import "./style.css";
 
 /** bridge へ state を要求してから応答を諦めるまでの猶予。 */
 const BRIDGE_STATE_TIMEOUT_MS = 3000;

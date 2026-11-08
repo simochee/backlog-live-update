@@ -28,13 +28,11 @@ export const StateResponseSchema = v.pipe(
 	v.object({
 		found: v.boolean(),
 		issueId: v.fallback(v.optional(v.number()), undefined),
-		minId: v.fallback(v.optional(v.number()), undefined),
 		recentIds: v.fallback(v.optional(v.array(v.number())), undefined),
 	}),
-	v.transform(({ found, issueId, minId, recentIds }) => ({
+	v.transform(({ found, issueId, recentIds }) => ({
 		found,
 		...(issueId !== undefined ? { issueId } : {}),
-		...(minId !== undefined ? { minId } : {}),
 		...(recentIds !== undefined ? { recentIds } : {}),
 	})),
 );
