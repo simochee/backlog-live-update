@@ -9,7 +9,7 @@ describe("highlightComments", () => {
 	it("指定したコメントが更新色でハイライトされる", () => {
 		highlightComments([1, 2]);
 
-		const style = document.getElementById("lfb-comment-highlight");
+		const style = document.getElementById("blu-comment-highlight");
 		expect(style).not.toBeNull();
 		expect(style?.textContent).toContain(
 			"#comment-item-1{background-color:var(--backgroundColorUpdate);}",
@@ -23,8 +23,8 @@ describe("highlightComments", () => {
 		highlightComments([1]);
 		highlightComments([2]);
 
-		expect(document.querySelectorAll("#lfb-comment-highlight").length).toBe(1);
-		const text = document.getElementById("lfb-comment-highlight")?.textContent;
+		expect(document.querySelectorAll("#blu-comment-highlight").length).toBe(1);
+		const text = document.getElementById("blu-comment-highlight")?.textContent;
 		expect(text).toContain("comment-item-1");
 		expect(text).toContain("comment-item-2");
 	});
@@ -34,13 +34,13 @@ describe("highlightComments", () => {
 		highlightComments([1, 2]);
 
 		const text =
-			document.getElementById("lfb-comment-highlight")?.textContent ?? "";
+			document.getElementById("blu-comment-highlight")?.textContent ?? "";
 		expect(text.match(/#comment-item-1\{/g) ?? []).toHaveLength(1);
 		expect(text).toContain("#comment-item-2{");
 	});
 
 	it("空配列なら style 要素を作らない", () => {
 		highlightComments([]);
-		expect(document.getElementById("lfb-comment-highlight")).toBeNull();
+		expect(document.getElementById("blu-comment-highlight")).toBeNull();
 	});
 });

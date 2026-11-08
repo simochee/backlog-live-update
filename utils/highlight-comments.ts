@@ -1,4 +1,4 @@
-const STYLE_ELEMENT_ID = "lfb-comment-highlight";
+const STYLE_ELEMENT_ID = "blu-comment-highlight";
 
 // is_target class は React の再描画で剥がれるため、安定した要素 id を CSS から狙う。
 export function highlightComments(ids: number[]): void {

@@ -60,9 +60,9 @@ beforeEach(async () => {
 	vi.stubGlobal("location", new URL("https://example.backlog.com/view/P-1"));
 	vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
 	mocks.script = document.createElement("script");
-	mocks.script.addEventListener("lfb:request-state", () => {
+	mocks.script.addEventListener("blu:request-state", () => {
 		mocks.script?.dispatchEvent(
-			new CustomEvent("lfb:state", {
+			new CustomEvent("blu:state", {
 				detail: JSON.stringify({ found: true, issueId: 42, recentIds: [] }),
 			}),
 		);
@@ -172,7 +172,7 @@ describe("content の寿命", () => {
 				}),
 		);
 		const revalidate = vi.fn();
-		mocks.script?.addEventListener("lfb:revalidate-issue", revalidate);
+		mocks.script?.addEventListener("blu:revalidate-issue", revalidate);
 		await vi.advanceTimersByTimeAsync(15000);
 		await settingsStorage.setValue({
 			interval: 30,
@@ -344,7 +344,7 @@ describe("PR ページの監視", () => {
 			spaces: [{ key, apiKey, enabled: true }],
 		});
 		const sync = vi.fn();
-		mocks.script?.addEventListener("lfb:sync-pull-request", sync);
+		mocks.script?.addEventListener("blu:sync-pull-request", sync);
 		await content.main(ctx);
 		return sync;
 	};
@@ -362,7 +362,7 @@ describe("PR ページの監視", () => {
 		expect(mocks.meta).not.toHaveBeenCalled();
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(mocks.probe).toHaveBeenCalledTimes(1);
-		mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+		mocks.script?.dispatchEvent(new CustomEvent("blu:pull-request-synced"));
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(mocks.probe).toHaveBeenCalledTimes(2);
 		ctx.notifyInvalidated();
@@ -375,13 +375,13 @@ describe("PR ページの監視", () => {
 		expect(mocks.probe).toHaveBeenCalledTimes(1);
 		for (const tab of ["history", "diff"]) {
 			location.pathname = `/git/TEST/repo/pullRequests/1/${tab}`;
-			mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+			mocks.script?.dispatchEvent(new CustomEvent("blu:pull-request-synced"));
 			await vi.advanceTimersByTimeAsync(15000);
 		}
 		expect(mocks.probe).toHaveBeenCalledTimes(3);
 		expect(liveStates().at(-1)).toBe(true);
 		location.pathname = "/git/TEST/repo/pullRequests/2";
-		mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+		mocks.script?.dispatchEvent(new CustomEvent("blu:pull-request-synced"));
 		await vi.advanceTimersByTimeAsync(60000);
 		expect(mocks.probe).toHaveBeenCalledTimes(3);
 	});
