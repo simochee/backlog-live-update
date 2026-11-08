@@ -1,4 +1,5 @@
 import type { StarMapPatch } from "./bridge-protocol";
+import { isCommentIdKey } from "./comment-id";
 import type { CommentStarItem, CommentStarMap } from "./react-fiber";
 
 /**
@@ -47,6 +48,7 @@ export function applyStarMapPatch(
 	let changed = false;
 	const next: CommentStarMap = { ...current };
 	for (const [cid, rawNext] of Object.entries(patch.byCommentId)) {
+		if (!isCommentIdKey(cid)) continue;
 		// patch 要素は `comment` を持たないので、fiber 形(`comment: null` 含む)に補完する。
 		// 画面 component が `star.comment` を読むケースで undefined 化を避けるため。
 		const nextStars: CommentStarItem[] = rawNext.map((s) => ({

@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { isCommentIdKey } from "./comment-id";
 
 // CustomEvent の detail はオブジェクトのままだと world 境界で失われ得るため、
 // isolated world と MAIN world の間では JSON 文字列で授受する。
@@ -64,25 +65,18 @@ const StarPatchSchema = v.object({
 	userIcon: v.string(),
 });
 const StarPatchListSchema = validItems(StarPatchSchema);
-const ObjectContainerSchema = v.object({});
-// v.record は一部のキーを除去するため、既存のキーと配列コンテナをそのまま検証する。
-const StarMapEntriesSchema = v.custom<object>((value) =>
-	v.is(ObjectContainerSchema, value),
-);
 export const StarMapPatchSchema = v.object({
 	byCommentId: v.pipe(
-		StarMapEntriesSchema,
-		v.transform((entries) => {
-			const byCommentId: Record<
-				string,
-				v.InferOutput<typeof StarPatchListSchema>
-			> = {};
-			for (const [cid, items] of Object.entries(entries)) {
-				const result = v.safeParse(StarPatchListSchema, items);
-				if (result.success) byCommentId[cid] = result.output;
-			}
-			return byCommentId;
-		}),
+		v.record(v.string(), v.unknown()),
+		v.transform((entries) =>
+			Object.fromEntries<v.InferOutput<typeof StarPatchListSchema>>(
+				Object.entries(entries).flatMap(([cid, items]) => {
+					if (!isCommentIdKey(cid)) return [];
+					const result = v.safeParse(StarPatchListSchema, items);
+					return result.success ? [[cid, result.output]] : [];
+				}),
+			),
+		),
 	),
 });
 export type StarMapPatch = v.InferOutput<typeof StarMapPatchSchema>;

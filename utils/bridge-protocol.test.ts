@@ -198,13 +198,13 @@ describe("bridge payload の部分的な不正", () => {
 			parseStarMapPatch(
 				JSON.stringify({
 					byCommentId: {
-						bad: null,
-						invalid: [null, { id: 1 }],
-						empty: [],
+						"100": null,
+						"200": [null, { id: 1 }],
+						"300": [],
 					},
 				}),
 			),
-		).toStrictEqual({ byCommentId: { invalid: [], empty: [] } });
+		).toStrictEqual({ byCommentId: { "200": [], "300": [] } });
 	});
 
 	it("star map の配列コンテナも数値キーの map として扱う", () => {
@@ -253,10 +253,40 @@ describe("bridge payload の部分的な不正", () => {
 	});
 });
 
-it("star map の constructor と prototype も既存の comment key として保持する", () => {
+it("数字だけの comment key を保持し、それ以外の key を捨てる", () => {
+	const result = parseStarMapPatch(
+		JSON.stringify({
+			byCommentId: {
+				"0": [],
+				"001": [],
+				"12": [],
+				"-1": [],
+				"1.5": [],
+				"1e2": [],
+				"": [],
+				x: [],
+			},
+		}),
+	);
+	expect(Object.keys(result?.byCommentId ?? {}).sort()).toStrictEqual([
+		"0",
+		"001",
+		"12",
+	]);
+});
+
+it("予約語の comment key を除外し、出力と Object.prototype の prototype を汚染しない", () => {
+	const objectPrototype = Object.getOwnPropertyDescriptors(Object.prototype);
+	const result = parseStarMapPatch(
+		'{"byCommentId":{"__proto__":[],"constructor":[],"prototype":[]}}',
+	);
+	const byCommentId = result?.byCommentId ?? {};
+	for (const key of ["__proto__", "constructor", "prototype"]) {
+		expect(Object.hasOwn(byCommentId, key)).toBe(false);
+	}
+	expect(Object.getPrototypeOf(byCommentId)).toBe(Object.prototype);
 	expect(
-		parseStarMapPatch(
-			JSON.stringify({ byCommentId: { constructor: [], prototype: [] } }),
-		),
-	).toStrictEqual({ byCommentId: { constructor: [], prototype: [] } });
+		Object.entries(Object.getOwnPropertyDescriptors(Object.prototype)),
+	).toStrictEqual(Object.entries(objectPrototype));
+	expect(Object.getPrototypeOf(Object.prototype)).toBeNull();
 });
