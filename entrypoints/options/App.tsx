@@ -1,13 +1,17 @@
 import { use, useEffect, useRef, useState } from "react";
+import icon from "@/assets/icon.svg";
 import {
 	INTERVAL_OPTIONS,
 	parseSettings,
-	parseSpaceKeyInput,
 	type Settings,
 	type SpaceConfig,
 	settingsStorage,
 } from "@/utils/settings";
-import { SpaceDetail, SpaceForm, type SuggestedSpace } from "./SpaceForm";
+import {
+	type SuggestedSpace,
+	suggestedSpaceStorage,
+} from "@/utils/suggested-space";
+import { SpaceDetail, SpaceForm } from "./SpaceForm";
 
 // render 内で読み直すと Suspense の再試行ごとに Promise が変わるため、ここで共有する。
 const settingsPromise = settingsStorage.getValue();
@@ -24,7 +28,7 @@ export const App = () => {
 	const settings = use(settingsPromise);
 	const [values, setValues] = useState(() => parseSettings(settings));
 	const [page, setPage] = useState<Page>({ kind: "main" });
-	const [suggestion, setSuggestion] = useState<SuggestedSpace>();
+	const [suggestion, setSuggestion] = useState<SuggestedSpace | null>(null);
 	const [saveError, setSaveError] = useState(false);
 	const heading = useRef<HTMLHeadingElement>(null);
 	const main = useRef<HTMLElement>(null);
@@ -49,16 +53,20 @@ export const App = () => {
 	};
 	useEffect(() => {
 		let active = true;
-		void browser.tabs
-			.query({ active: true, currentWindow: true })
-			.then(([tab]) => {
-				if (!active || !tab?.url) return;
-				const key = parseSpaceKeyInput(tab.url);
-				if (key) setSuggestion({ key, origin: new URL(tab.url).origin });
+		let changed = false;
+		const unwatch = suggestedSpaceStorage.watch((value) => {
+			changed = true;
+			if (active) setSuggestion(value);
+		});
+		void suggestedSpaceStorage
+			.getValue()
+			.then((value) => {
+				if (active && !changed) setSuggestion(value);
 			})
 			.catch(() => {});
 		return () => {
 			active = false;
+			unwatch();
 		};
 	}, []);
 	const update = async (inputs: Settings) => {
@@ -84,26 +92,32 @@ export const App = () => {
 			: undefined;
 	return (
 		<main ref={main}>
-			<header>
-				{page.kind !== "main" && (
-					<button
-						className="back"
-						type="button"
-						aria-label="Back"
-						onClick={goBack}
-					>
-						←
-					</button>
+			<header className="app-bar">
+				<img src={icon} width="28" height="28" alt="" />
+				{page.kind === "main" ? (
+					<h1 ref={heading} tabIndex={-1}>
+						Live for Backlog
+					</h1>
+				) : (
+					<span className="app-title">Live for Backlog</span>
 				)}
-				<h1 ref={heading} tabIndex={-1}>
-					{page.kind === "main"
-						? "Live for Backlog"
-						: page.kind === "add"
-							? "Add space"
-							: page.key}
-				</h1>
 			</header>
 			<div className="page">
+				{page.kind !== "main" && (
+					<header className="page-heading">
+						<button
+							className="back"
+							type="button"
+							aria-label="Back"
+							onClick={goBack}
+						>
+							←
+						</button>
+						<h1 ref={heading} tabIndex={-1}>
+							{page.kind === "add" ? "Add space" : page.key}
+						</h1>
+					</header>
+				)}
 				{page.kind === "main" && (
 					<>
 						<section aria-labelledby="spaces-heading">

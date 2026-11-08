@@ -11,6 +11,7 @@ export default defineConfig({
 		name: "Live for Backlog",
 		description: "Keep Backlog alive without reloading.",
 		permissions: ["storage", "activeTab"],
+		action: { default_title: "Live for Backlog" },
 		...(browser === "firefox"
 			? {
 					browser_specific_settings: {

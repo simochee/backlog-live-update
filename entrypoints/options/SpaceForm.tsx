@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { parseSpaceKeyInput, type SpaceConfig } from "@/utils/settings";
+import type { SuggestedSpace } from "@/utils/suggested-space";
 import { ApiKeyField } from "./ApiKeyField";
-
-export type SuggestedSpace = { key: string; origin: string };
 
 export function SpaceForm({
 	spaces,
