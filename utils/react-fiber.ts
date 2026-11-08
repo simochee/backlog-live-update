@@ -48,20 +48,33 @@ export interface CommentStateHook {
 	state: CommentState;
 }
 
-/** DOM を BFS で辿り、最も近い React root fiber を返す。未検出なら null。 */
+let cachedRoot: { element: Element; key: string } | undefined;
+
+function readRoot(element: Element, key: string): Fiber | null {
+	const container = (element as unknown as Record<string, unknown>)[key] as
+		| { stateNode?: { current?: Fiber } }
+		| undefined;
+	return container?.stateNode?.current ?? null;
+}
+
 export function findRootFiber(start: Element = document.body): Fiber | null {
+	if (cachedRoot?.element.isConnected && start.contains(cachedRoot.element)) {
+		const root = readRoot(cachedRoot.element, cachedRoot.key);
+		if (root) return root;
+	}
+	cachedRoot = undefined;
 	const queue: Element[] = [start];
-	while (queue.length > 0) {
-		const element = queue.shift();
-		if (!element) break;
+	for (let index = 0; index < queue.length; index++) {
+		const element = queue[index];
 		const key = Object.keys(element).find((k) =>
 			k.startsWith(REACT_CONTAINER_KEY_PREFIX),
 		);
 		if (key) {
-			const container = (element as unknown as Record<string, unknown>)[key] as
-				| { stateNode?: { current?: Fiber } }
-				| undefined;
-			return container?.stateNode?.current ?? null;
+			const root = readRoot(element, key);
+			if (root) {
+				cachedRoot = { element, key };
+				return root;
+			}
 		}
 		queue.push(...Array.from(element.children));
 	}
