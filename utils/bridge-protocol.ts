@@ -82,7 +82,11 @@ export const StarMapPatchSchema = v.object({
 export type StarMapPatch = v.InferOutput<typeof StarMapPatchSchema>;
 
 export const PullRequestProbeSchema = v.object({
-	comments: v.array(v.object({ id: v.number(), created: v.string() })),
+	comments: v.array(
+		v.object({ id: v.number(), created: v.string(), updated: v.string() }),
+	),
+	// false のときは直近の窓だけで、窓より古いコメントの有無は分からない。
+	complete: v.boolean(),
 });
 export type PullRequestProbe = v.InferOutput<typeof PullRequestProbeSchema>;
 

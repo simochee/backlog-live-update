@@ -24,7 +24,12 @@ export async function fetchPullRequestProbe(
 			{ count: PROBE_COMMENT_COUNT, order: "desc" },
 		);
 		return {
-			comments: comments.map(({ id, created }) => ({ id, created })),
+			comments: comments.map(({ id, created, updated }) => ({
+				id,
+				created,
+				updated,
+			})),
+			complete: comments.length < PROBE_COMMENT_COUNT,
 		};
 	} catch {
 		return null;
