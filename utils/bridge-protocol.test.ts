@@ -11,23 +11,20 @@ describe("parseStateResponse", () => {
 		const detail = JSON.stringify({
 			found: true,
 			issueId: 42,
-			minId: 7,
 			recentIds: [1, 2, 7],
 		});
 		expect(parseStateResponse(detail)).toEqual({
 			found: true,
 			issueId: 42,
-			minId: 7,
 			recentIds: [1, 2, 7],
 		});
 	});
 
 	it("recentIds 無しでも読める(後方互換)", () => {
-		const detail = JSON.stringify({ found: true, issueId: 42, minId: 7 });
+		const detail = JSON.stringify({ found: true, issueId: 42 });
 		expect(parseStateResponse(detail)).toEqual({
 			found: true,
 			issueId: 42,
-			minId: 7,
 		});
 	});
 
@@ -177,12 +174,11 @@ describe("bridge payload の部分的な不正", () => {
 			JSON.stringify({
 				found: false,
 				issueId: "bad",
-				minId: 0,
 				recentIds: null,
 				extra: true,
 			}),
 		);
-		expect(result).toStrictEqual({ found: false, minId: 0 });
+		expect(result).toStrictEqual({ found: false });
 		expect(result).not.toHaveProperty("issueId");
 		expect(result).not.toHaveProperty("recentIds");
 	});
