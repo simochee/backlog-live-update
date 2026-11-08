@@ -30,6 +30,7 @@ export function parseSettings(raw: unknown): Settings {
 		interval?: unknown;
 		spaces?: unknown;
 	};
+	const seenKeys = new Set<string>();
 	return {
 		interval: v.parse(
 			v.fallback(IntervalSchema, DEFAULT_SETTINGS.interval),
@@ -38,7 +39,9 @@ export function parseSettings(raw: unknown): Settings {
 		spaces: Array.isArray(source.spaces)
 			? source.spaces.flatMap((entry) => {
 					const parsed = v.safeParse(SpaceConfigSchema, entry);
-					return parsed.success ? [parsed.output] : [];
+					if (!parsed.success || seenKeys.has(parsed.output.key)) return [];
+					seenKeys.add(parsed.output.key);
+					return [parsed.output];
 				})
 			: [],
 	};
@@ -63,7 +66,7 @@ export function effectiveConfigForHost(settings: Settings, hostname: string) {
 
 export function parseSpaceKeyInput(input: string): string | undefined {
 	const value = input.trim().toLowerCase();
-	if (/^[a-z0-9-]+$/.test(value)) return value;
+	if (/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) return value;
 	try {
 		const url = new URL(value.includes("://") ? value : `https://${value}`);
 		if (
@@ -80,7 +83,9 @@ export function parseSpaceKeyInput(input: string): string | undefined {
 		if (labels.length !== 3 || !domains.includes(labels.slice(1).join(".")))
 			return undefined;
 		const [key] = labels;
-		return key && /^[a-z0-9-]+$/.test(key) ? key : undefined;
+		return key && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(key)
+			? key
+			: undefined;
 	} catch {
 		return undefined;
 	}
@@ -94,6 +99,9 @@ export function migrateSettingsV1ToV2(old: unknown): unknown {
 	return {
 		interval: v1.interval,
 		space: Array.isArray(v1.spaces) ? v1.spaces[0] : undefined,
+		...(Array.isArray(v1.spaces) && v1.spaces.length > 1
+			? { additionalSpaces: v1.spaces.slice(1) }
+			: {}),
 	};
 }
 
@@ -101,11 +109,12 @@ export function migrateSettingsV2ToV3(old: unknown) {
 	const v2 = (typeof old === "object" && old !== null ? old : {}) as {
 		interval?: unknown;
 		space?: unknown;
+		additionalSpaces?: unknown;
 	};
 	const space = (
 		typeof v2.space === "object" && v2.space !== null ? v2.space : {}
 	) as { id?: unknown; key?: unknown; apiKey?: unknown };
-	return v.parse(
+	const migrated = v.parse(
 		v.object({
 			interval: v.fallback(IntervalSchema, 60),
 			space: v.fallback(v.object({ key: v.string(), apiKey: v.string() }), {
@@ -121,14 +130,39 @@ export function migrateSettingsV2ToV3(old: unknown) {
 			},
 		},
 	);
+	return {
+		...migrated,
+		...(Array.isArray(v2.additionalSpaces)
+			? { additionalSpaces: v2.additionalSpaces }
+			: {}),
+	};
 }
 
 export function migrateSettingsV3ToV4(old: unknown): Settings {
+	const source = (typeof old === "object" && old !== null ? old : {}) as {
+		spaces?: unknown;
+	};
+	// 移行のメタデータ保存だけが失敗した後、popup が v4 の値を保存している場合もある。
+	if (Array.isArray(source.spaces)) return parseSettings(old);
 	const v3 = migrateSettingsV2ToV3(old);
-	return parseSettings({
-		interval: v3.interval,
-		spaces: v3.space.key ? [{ ...v3.space, enabled: true }] : [],
-	});
+	const spaces = [v3.space, ...(v3.additionalSpaces ?? [])].flatMap(
+		(entry: unknown) => {
+			const legacy = v.safeParse(
+				v.object({
+					key: v.optional(v.string()),
+					id: v.optional(v.string()),
+					apiKey: v.string(),
+				}),
+				entry,
+			);
+			if (!legacy.success) return [];
+			const key = parseSpaceKeyInput(
+				legacy.output.key ?? legacy.output.id ?? "",
+			);
+			return key ? [{ key, apiKey: legacy.output.apiKey, enabled: true }] : [];
+		},
+	);
+	return parseSettings({ interval: v3.interval, spaces });
 }
 
 export const settingsStorage = storage.defineItem<Settings>("local:settings", {
