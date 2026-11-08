@@ -20,10 +20,20 @@ const mocks = vi.hoisted(() => ({
 	script: undefined as HTMLScriptElement | undefined,
 }));
 
+// 実装は style 注入時点で既に一致している要素にも animationstart を 1 回発火させる。
+// happy-dom は CSS animation を走らせないので、その挙動を mock 側で再現する。
 vi.mock("@/utils/on-element-appear", () => ({
-	onElementAppear: (_selector: string, callback: () => void) => {
+	onElementAppear: (selector: string, callback: () => void) => {
 		mocks.appear = callback;
-		return mocks.stopAppear;
+		let stopped = false;
+		setTimeout(() => {
+			if (stopped) return;
+			for (const _ of document.querySelectorAll(selector)) callback();
+		}, 0);
+		return () => {
+			stopped = true;
+			mocks.stopAppear();
+		};
 	},
 }));
 vi.mock("@/utils/fetch-issue-meta", () => ({ fetchIssueMeta: mocks.meta }));
@@ -63,6 +73,45 @@ afterEach(() => {
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
+});
+
+function liveStates(): boolean[] {
+	return vi
+		.mocked(browser.runtime.sendMessage)
+		.mock.calls.map(
+			([message]) => (message as unknown as { active: boolean }).active,
+		);
+}
+
+describe("監視の開始", () => {
+	it("コメント欄が既にあるページで監視を始めても、baseline は 1 回だけ取得する", async () => {
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(mocks.meta).toHaveBeenCalledOnce();
+	});
+
+	it("コメント欄が既にあるページで監視を始めても、点いた badge は消えない", async () => {
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		await vi.advanceTimersByTimeAsync(0);
+		const states = liveStates();
+		expect(states).toContain(true);
+		expect(states.slice(states.indexOf(true))).not.toContain(false);
+	});
+
+	it("コメント欄がある状態で設定を変えても、baseline の再取得は 1 回だけ", async () => {
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		await vi.advanceTimersByTimeAsync(0);
+		mocks.meta.mockClear();
+		await settingsStorage.setValue({
+			interval: 30,
+			space: { key: "example", apiKey: "NEW" },
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		expect(mocks.meta).toHaveBeenCalledOnce();
+	});
 });
 
 describe("content の寿命", () => {
