@@ -1,3 +1,8 @@
+import * as v from "valibot";
+
+const IssueMetaSchema = v.object({ id: v.number(), updated: v.string() });
+export type IssueMeta = v.InferOutput<typeof IssueMetaSchema>;
+
 /**
  * 課題の最新 meta(`id` と `updated`)を public REST API から取得する。polling の鮮度
  * probe 用途。
@@ -13,7 +18,7 @@ export async function fetchIssueMeta(
 	host: string,
 	apiKey: string | undefined,
 	issueIdOrKey: string,
-): Promise<{ id: number; updated: string } | null> {
+): Promise<IssueMeta | null> {
 	const params = new URLSearchParams({
 		apiKey: apiKey ?? "",
 		_: String(Date.now()),
@@ -31,8 +36,6 @@ export async function fetchIssueMeta(
 		return null;
 	}
 
-	if (typeof json !== "object" || json === null) return null;
-	const { id, updated } = json as { id?: unknown; updated?: unknown };
-	if (typeof id !== "number" || typeof updated !== "string") return null;
-	return { id, updated };
+	const result = v.safeParse(IssueMetaSchema, json);
+	return result.success ? result.output : null;
 }

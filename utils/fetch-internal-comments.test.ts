@@ -49,3 +49,27 @@ describe("fetchInternalComments", () => {
 		expect(await fetchInternalComments(42)).toBeNull();
 	});
 });
+
+it.each([
+	null,
+	{},
+	{ id: "1" },
+	{ id: false },
+	1,
+])("id が数値でない comment %j を含む応答は全体を null にする", async (invalid) => {
+	mockFetch(() => jsonResponse({ comments: [{ id: 1 }, invalid, { id: 2 }] }));
+	expect(await fetchInternalComments(42)).toBeNull();
+});
+
+it("comment の id 以外の不透明な field を保持する", async () => {
+	const comments = [
+		{
+			id: 1,
+			content: "<p>hello</p>",
+			notifyResource: [{ notificationId: 2 }],
+			nested: { value: null },
+		},
+	];
+	mockFetch(() => jsonResponse({ comments }));
+	expect(await fetchInternalComments(42)).toStrictEqual(comments);
+});
