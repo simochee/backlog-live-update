@@ -14,5 +14,8 @@ export function mockFetch(impl: () => Response | Promise<Response>) {
 
 /** `ok` と `json()` だけを備えた最小の Response ライク。 */
 export function jsonResponse(body: unknown, ok = true): Response {
-	return { ok, json: () => Promise.resolve(body) } as unknown as Response;
+	return new Response(JSON.stringify(body), {
+		status: ok ? 200 : 500,
+		headers: { "Content-Type": "application/json" },
+	});
 }

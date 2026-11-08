@@ -27,9 +27,8 @@ vi.mock("@/utils/on-element-appear", () => ({
 }));
 vi.mock("@/utils/fetch-issue-meta", () => ({ fetchIssueMeta: mocks.meta }));
 vi.mock("backlog-js", () => ({
-	Backlog: class {
-		getIssueComments = mocks.comments;
-	},
+	createClient: vi.fn(() => ({})),
+	getIssueComments: mocks.comments,
 }));
 vi.mock("wxt/utils/inject-script", () => ({
 	injectScript: async () => ({ script: mocks.script }),
