@@ -10,7 +10,7 @@ export default defineConfig({
 	manifest: ({ browser }) => ({
 		name: "Live for Backlog",
 		description: "Keep Backlog alive without reloading.",
-		permissions: ["storage"],
+		permissions: ["storage", "activeTab"],
 		...(browser === "firefox"
 			? {
 					browser_specific_settings: {

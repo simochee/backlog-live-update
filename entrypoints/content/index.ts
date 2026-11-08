@@ -13,7 +13,11 @@ import { fetchWithoutCache } from "@/utils/fetch-without-cache";
 import { createLiveStateMessage } from "@/utils/live-state-message";
 import { onElementAppear } from "@/utils/on-element-appear";
 import { pollWhileVisible } from "@/utils/poll-while-visible";
-import { parseSettings, settingsStorage } from "@/utils/settings";
+import {
+	effectiveConfigForHost,
+	parseSettings,
+	settingsStorage,
+} from "@/utils/settings";
 
 const BRIDGE_STATE_TIMEOUT_MS = 3000;
 
@@ -148,7 +152,7 @@ export default defineContentScript({
 	matches: [...BACKLOG_HOST_MATCHES],
 
 	async main(ctx) {
-		const [currentSpaceKey] = location.hostname.split(".");
+		let effectiveConfig: ReturnType<typeof effectiveConfigForHost>;
 		let stopPoll: (() => void) | undefined;
 		let stopAppear: (() => void) | undefined;
 		let pollAlive = false;
@@ -178,12 +182,22 @@ export default defineContentScript({
 			syncLiveState();
 		};
 		const restart = async (raw: unknown) => {
+			const next = effectiveConfigForHost(
+				parseSettings(raw),
+				location.hostname,
+			);
+			if (
+				next?.interval === effectiveConfig?.interval &&
+				next?.apiKey === effectiveConfig?.apiKey
+			)
+				return;
+			effectiveConfig = next;
 			disposePoll();
 			stopAppear?.();
 			stopAppear = undefined;
 			const version = generation;
-			const { interval, space } = parseSettings(raw);
-			if (ctx.isInvalid || !space.key || space.key !== currentSpaceKey) return;
+			if (ctx.isInvalid || !next) return;
+			const { interval, apiKey } = next;
 
 			// fiber 操作は MAIN world でしか動かないため、bridge を注入する。
 			bridge ??= injectScript("/comment-bridge.js", { keepInDom: true });
@@ -191,7 +205,7 @@ export default defineContentScript({
 			if (ctx.isInvalid || version !== generation) return;
 			const backlog = createClient({
 				host: location.hostname,
-				apiKey: space.apiKey,
+				apiKey,
 				fetch: fetchWithoutCache,
 			});
 			const start = () => {
@@ -210,7 +224,7 @@ export default defineContentScript({
 						backlog,
 						script,
 						host: location.hostname,
-						apiKey: space.apiKey,
+						apiKey,
 						issueKey,
 						isActive: () =>
 							ctx.isValid &&
