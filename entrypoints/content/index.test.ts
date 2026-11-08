@@ -1,3 +1,4 @@
+import { createClient } from "backlog-js";
 import {
 	afterEach,
 	beforeEach,
@@ -38,6 +39,7 @@ let ctx: ContentScriptContext;
 beforeEach(async () => {
 	vi.useFakeTimers();
 	vi.clearAllMocks();
+	document.body.replaceChildren();
 	vi.spyOn(browser.runtime, "sendMessage").mockResolvedValue(undefined);
 	vi.stubGlobal("location", new URL("https://example.backlog.com/view/P-1"));
 	vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
@@ -64,6 +66,72 @@ afterEach(() => {
 });
 
 describe("content の寿命", () => {
+	it("起動時に対象外の Space でも、設定が一致すれば監視を始める", async () => {
+		await settingsStorage.setValue(DEFAULT_SETTINGS);
+		await content.main(ctx);
+		document.body.innerHTML = '<div id="comments"></div>';
+		await settingsStorage.setValue({
+			interval: 15,
+			space: { key: "example", apiKey: "KEY" },
+		});
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).toHaveBeenCalledOnce();
+	});
+
+	it("無効化後の設定変更では監視を再開しない", async () => {
+		await content.main(ctx);
+		ctx.notifyInvalidated();
+		vi.mocked(createClient).mockClear();
+		await settingsStorage.setValue({
+			interval: 30,
+			space: { key: "example", apiKey: "NEW" },
+		});
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(createClient).not.toHaveBeenCalled();
+		expect(mocks.comments).not.toHaveBeenCalled();
+	});
+
+	it("設定変更後は新しい間隔と API キーで取得する", async () => {
+		await content.main(ctx);
+		document.body.innerHTML = '<div id="comments"></div>';
+		mocks.appear?.();
+		await vi.advanceTimersByTimeAsync(10000);
+		await settingsStorage.setValue({
+			interval: 30,
+			space: { key: "example", apiKey: "NEW" },
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		await vi.advanceTimersByTimeAsync(29999);
+		expect(mocks.comments).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(mocks.comments).toHaveBeenCalledOnce();
+		expect(createClient).toHaveBeenLastCalledWith(
+			expect.objectContaining({ apiKey: "NEW" }),
+		);
+	});
+
+	it("Space Key がホストと違えば停止し、一致する設定に戻れば再開する", async () => {
+		await content.main(ctx);
+		document.body.innerHTML = '<div id="comments"></div>';
+		mocks.appear?.();
+		await settingsStorage.setValue({
+			interval: 15,
+			space: { key: "other", apiKey: "KEY" },
+		});
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.comments).not.toHaveBeenCalled();
+		expect(browser.runtime.sendMessage).toHaveBeenLastCalledWith({
+			type: "live-state",
+			active: false,
+		});
+		await settingsStorage.setValue({
+			interval: 15,
+			space: { key: "example", apiKey: "KEY" },
+		});
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).toHaveBeenCalledOnce();
+	});
+
 	it("無効化後は API を再取得せず、要素の監視と badge を解除する", async () => {
 		await content.main(ctx);
 		mocks.appear?.();

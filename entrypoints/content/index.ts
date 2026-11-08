@@ -178,91 +178,87 @@ export default defineContentScript({
 	matches: [...BACKLOG_HOST_MATCHES],
 
 	async main(ctx) {
-		const { interval, space } = parseSettings(await settingsStorage.getValue());
-		if (ctx.isInvalid) return;
 		const [currentSpaceKey] = location.hostname.split(".");
-
-		if (!space.key || space.key !== currentSpaceKey) return;
-
-		debugLog("content live setup start", {
-			spaceKey: space.key,
-			host: location.hostname,
-		});
-
-		const backlog = createClient({
-			host: location.hostname,
-			apiKey: space.apiKey,
-			fetch: fetchWithoutCache,
-		});
-
-		// fiber 操作は MAIN world でしか動かないため bridge を注入する。
-		const { script } = await injectScript("/comment-bridge.js", {
-			keepInDom: true,
-		});
-		if (ctx.isInvalid) return;
-
-		const intervalMs = interval * 1000;
 		let stopPoll: (() => void) | undefined;
+		let stopAppear: (() => void) | undefined;
 		let pollAlive = false;
+		let generation = 0;
+		let settingsChanged = false;
+		let bridge: ReturnType<typeof injectScript> | undefined;
 
-		// background へ live 起動状態を伝える(badge 表示用)。tab スコープ管理は
-		// background 側で sender.tab.id を見て行う。
 		const notifyLiveState = (active: boolean) => {
-			debugLog("notify live-state", { active });
 			void browser.runtime
 				.sendMessage(createLiveStateMessage(active))
 				.catch((err) => debugLog("notify live-state failed", err));
 		};
-
-		// polling は `pollWhileVisible` 内で tab hidden 時に timer を clear する。
-		// badge も同タイミングで OFF にする → visibility と pollAlive の AND を送る。
 		const syncLiveState = () => {
 			notifyLiveState(pollAlive && document.visibilityState === "visible");
 		};
-
-		ctx.addEventListener(document, "visibilitychange", syncLiveState);
-		// hard navigation / tab close 直前に badge を消す(tab close 自体は browser
-		// 側で badge state が GC されるが、同 tab 内 hard navigation 対策)。
-		ctx.addEventListener(window, "pagehide", () => notifyLiveState(false));
-
 		const disposePoll = () => {
+			generation++;
 			stopPoll?.();
 			stopPoll = undefined;
 			pollAlive = false;
 			syncLiveState();
 		};
-
-		// SPA navigation 検出: content script は isolated world → MAIN world の
-		// history.pushState を patch できない。pathname を軽量 polling し、課題詳細
-		// から離脱した瞬間に polling を止めて badge を OFF にする。
+		const restart = async (raw: unknown) => {
+			disposePoll();
+			stopAppear?.();
+			stopAppear = undefined;
+			const version = generation;
+			const { interval, space } = parseSettings(raw);
+			if (ctx.isInvalid || !space.key || space.key !== currentSpaceKey) return;
+			// fiber 操作は MAIN world でしか動かないため bridge を注入する。
+			bridge ??= injectScript("/comment-bridge.js", { keepInDom: true });
+			const { script } = await bridge;
+			if (ctx.isInvalid || version !== generation) return;
+			const backlog = createClient({
+				host: location.hostname,
+				apiKey: space.apiKey,
+				fetch: fetchWithoutCache,
+			});
+			const start = () => {
+				if (ctx.isInvalid) return;
+				const issueKey = issueKeyFromPath(location.pathname);
+				if (!issueKey) return;
+				disposePoll();
+				const pollVersion = generation;
+				pollAlive = true;
+				stopPoll = pollWhileVisible(
+					createIssueWatcher({
+						backlog,
+						script,
+						host: location.hostname,
+						apiKey: space.apiKey,
+						issueKey,
+						isActive: () =>
+							ctx.isValid &&
+							pollAlive &&
+							pollVersion === generation &&
+							issueKeyFromPath(location.pathname) === issueKey,
+					}),
+					interval * 1000,
+				);
+				syncLiveState();
+			};
+			stopAppear = onElementAppear("#comments", start);
+			if (document.querySelector("#comments")) start();
+		};
+		ctx.addEventListener(document, "visibilitychange", syncLiveState);
+		ctx.addEventListener(window, "pagehide", disposePoll);
 		ctx.addEventListener(window, "wxt:locationchange", ({ newUrl, oldUrl }) => {
 			if (newUrl.pathname !== oldUrl.pathname) disposePoll();
 		});
-
-		const stopAppear = onElementAppear("#comments", () => {
-			if (ctx.isInvalid) return;
-			const issueKey = issueKeyFromPath(location.pathname);
-			if (!issueKey) return;
-
-			// 課題切り替え等で #comments が再出現したら前回の polling を止める。
-			stopPoll?.();
-			stopPoll = pollWhileVisible(
-				createIssueWatcher({
-					backlog,
-					script,
-					host: location.hostname,
-					apiKey: space.apiKey,
-					issueKey,
-					isActive: () => ctx.isValid && pollAlive,
-				}),
-				intervalMs,
-			);
-			pollAlive = true;
-			syncLiveState();
+		const unwatch = settingsStorage.watch((value) => {
+			settingsChanged = true;
+			void restart(value);
 		});
 		ctx.onInvalidated(() => {
 			disposePoll();
-			stopAppear();
+			stopAppear?.();
+			unwatch();
 		});
+		const initialSettings = await settingsStorage.getValue();
+		if (!ctx.isInvalid && !settingsChanged) await restart(initialSettings);
 	},
 });
