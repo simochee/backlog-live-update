@@ -3,6 +3,7 @@ import {
 	BACKLOG_HOST_MATCHES,
 	issueKeyFromPath,
 	pullRequestRefFromPath,
+	watchedPageKeyFromPath,
 } from "@/utils/backlog";
 import {
 	BRIDGE_EVENT,
@@ -265,11 +266,11 @@ export default defineContentScript({
 					// public API で変化を見つけるのに API キーが要る。無ければ内部エンドポイントを
 					// 定期的に叩く代替はせず、監視しない。
 					if (!apiKey) return;
-					if (pollAlive && watchedPageKey === location.pathname) return;
+					const pageKey = watchedPageKeyFromPath(location.pathname);
+					if (pollAlive && watchedPageKey === pageKey) return;
 					disposePoll();
 					pollAlive = true;
-					watchedPageKey = location.pathname;
-					const path = location.pathname;
+					watchedPageKey = pageKey;
 					const pollVersion = generation;
 					stopPoll = pollWhileVisible(
 						createPullRequestWatcher({
@@ -280,7 +281,7 @@ export default defineContentScript({
 								ctx.isValid &&
 								pollAlive &&
 								pollVersion === generation &&
-								location.pathname === path,
+								watchedPageKeyFromPath(location.pathname) === pageKey,
 						}),
 						interval * 1000,
 					);
@@ -324,8 +325,7 @@ export default defineContentScript({
 			if (
 				newUrl.pathname !== oldUrl.pathname &&
 				pollAlive &&
-				(issueKeyFromPath(newUrl.pathname) ?? newUrl.pathname) !==
-					watchedPageKey
+				watchedPageKeyFromPath(newUrl.pathname) !== watchedPageKey
 			)
 				disposePoll();
 		});

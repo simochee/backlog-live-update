@@ -1,6 +1,9 @@
 import { applyCommentMetaPatch } from "@/utils/apply-comment-meta-patch";
 import { applyStarMapPatch } from "@/utils/apply-star-map-patch";
-import { pullRequestRefFromPath } from "@/utils/backlog";
+import {
+	pullRequestRefFromPath,
+	watchedPageKeyFromPath,
+} from "@/utils/backlog";
 import {
 	BRIDGE_EVENT,
 	parseCommentMetaPatchList,
@@ -37,8 +40,8 @@ export default defineUnlistedScript(() => {
 		void (async () => {
 			try {
 				if (!probe) return;
-				const path = location.pathname;
-				const ref = pullRequestRefFromPath(path);
+				const ref = pullRequestRefFromPath(location.pathname);
+				const pageKey = watchedPageKeyFromPath(location.pathname);
 				const store = findPullRequestStore(
 					(window as unknown as { ko?: unknown }).ko,
 					document.getElementById("comments"),
@@ -51,7 +54,11 @@ export default defineUnlistedScript(() => {
 					store.number !== ref.number
 				)
 					return;
-				await syncPullRequest(store, probe, () => location.pathname === path);
+				await syncPullRequest(
+					store,
+					probe,
+					() => watchedPageKeyFromPath(location.pathname) === pageKey,
+				);
 			} catch (err) {
 				debugLog("bridge: pull request sync failed", err);
 			} finally {
