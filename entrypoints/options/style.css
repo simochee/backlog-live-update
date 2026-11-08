@@ -1,6 +1,6 @@
 :root {
 	color-scheme: light dark;
-	--background: #f1f3f4;
+	--background: #fff;
 	--surface: #fff;
 	--text: #202124;
 	--muted: #5f6368;
@@ -10,7 +10,6 @@
 	--highlight: #e8f0fe;
 	--track: #bdc1c6;
 	--error: #b3261e;
-	--shadow: 0 1px 2px #20212426;
 	font-family: system-ui, sans-serif;
 	font-size: 14px;
 	color: var(--text);
@@ -18,7 +17,7 @@
 }
 @media (prefers-color-scheme: dark) {
 	:root {
-		--background: #202124;
+		--background: #292a2d;
 		--surface: #292a2d;
 		--text: #e8eaed;
 		--muted: #9aa0a6;
@@ -28,7 +27,6 @@
 		--highlight: #394457;
 		--track: #5f6368;
 		--error: #f2b8b5;
-		--shadow: 0 1px 3px #0006;
 	}
 }
 * {
@@ -36,7 +34,7 @@
 }
 body {
 	margin: 0;
-	min-height: 100vh;
+	min-width: 480px;
 }
 header {
 	display: flex;
@@ -53,13 +51,13 @@ h1 {
 	font-weight: 500;
 	overflow-wrap: anywhere;
 }
-.app-title {
-	font-size: 16px;
-	font-weight: 500;
-}
-.app-bar {
-	padding-inline: 28px;
-	min-height: 68px;
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 .page-heading {
 	padding: 0 0 20px;
@@ -73,9 +71,7 @@ h2 {
 	font-weight: 500;
 }
 .page {
-	max-width: 728px;
-	margin-inline: auto;
-	padding: 32px 24px;
+	padding: 16px;
 }
 section + section {
 	margin-top: 24px;
@@ -83,7 +79,7 @@ section + section {
 .card {
 	border-radius: 8px;
 	background: var(--surface);
-	box-shadow: var(--shadow);
+	border: 1px solid var(--border);
 	overflow: hidden;
 }
 .row {
