@@ -1,7 +1,12 @@
 import { createClient, getIssueComments } from "backlog-js";
-import { BACKLOG_HOST_MATCHES, issueKeyFromPath } from "@/utils/backlog";
+import {
+	BACKLOG_HOST_MATCHES,
+	issueKeyFromPath,
+	pullRequestRefFromPath,
+} from "@/utils/backlog";
 import {
 	BRIDGE_EVENT,
+	type PullRequestProbe,
 	parseStateResponse,
 	type StateResponse,
 } from "@/utils/bridge-protocol";
@@ -9,6 +14,10 @@ import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
 import { buildStarMapPatch } from "@/utils/build-star-map-patch";
 import { debugLog } from "@/utils/debug-log";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
+import {
+	fetchPullRequestProbe,
+	type PullRequestRef,
+} from "@/utils/fetch-pull-request-probe";
 import { fetchWithoutCache } from "@/utils/fetch-without-cache";
 import { createLiveStateMessage } from "@/utils/live-state-message";
 import { onElementAppear } from "@/utils/on-element-appear";
@@ -20,6 +29,7 @@ import {
 } from "@/utils/settings";
 
 const BRIDGE_STATE_TIMEOUT_MS = 3000;
+const BRIDGE_SYNC_TIMEOUT_MS = 30000;
 
 // 全履歴を毎回取得すると payload が増えるため、直近のメタ変更を拾う窓を 20 件に絞る。
 const PROBE_WINDOW = 20;
@@ -148,6 +158,46 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 	};
 }
 
+function requestPullRequestSync(
+	script: HTMLScriptElement,
+	probe: PullRequestProbe,
+): Promise<void> {
+	return new Promise((resolve) => {
+		const finish = () => {
+			clearTimeout(timer);
+			script.removeEventListener(BRIDGE_EVENT.pullRequestSynced, finish);
+			resolve();
+		};
+		const timer = setTimeout(finish, BRIDGE_SYNC_TIMEOUT_MS);
+		script.addEventListener(BRIDGE_EVENT.pullRequestSynced, finish);
+		// API キーはここで fetch に使うだけで、MAIN world へ渡す detail には含めない。
+		script.dispatchEvent(
+			new CustomEvent(BRIDGE_EVENT.syncPullRequest, {
+				detail: JSON.stringify(probe),
+			}),
+		);
+	});
+}
+
+function createPullRequestWatcher({
+	backlog,
+	script,
+	ref,
+	isActive,
+}: {
+	backlog: ReturnType<typeof createClient>;
+	script: HTMLScriptElement;
+	ref: PullRequestRef;
+	isActive: () => boolean;
+}): () => Promise<void> {
+	return async () => {
+		if (!isActive()) return;
+		const probe = await fetchPullRequestProbe(backlog, ref);
+		if (!isActive() || !probe) return;
+		await requestPullRequestSync(script, probe);
+	};
+}
+
 export default defineContentScript({
 	matches: [...BACKLOG_HOST_MATCHES],
 
@@ -156,7 +206,7 @@ export default defineContentScript({
 		let stopPoll: (() => void) | undefined;
 		let stopAppear: (() => void) | undefined;
 		let pollAlive = false;
-		let watchedIssueKey: string | undefined;
+		let watchedPageKey: string | undefined;
 		let generation = 0;
 		let settingsChanged = false;
 		let bridge: ReturnType<typeof injectScript> | undefined;
@@ -178,7 +228,7 @@ export default defineContentScript({
 			stopPoll?.();
 			stopPoll = undefined;
 			pollAlive = false;
-			watchedIssueKey = undefined;
+			watchedPageKey = undefined;
 			syncLiveState();
 		};
 		const restart = async (raw: unknown) => {
@@ -199,7 +249,7 @@ export default defineContentScript({
 			if (ctx.isInvalid || !next) return;
 			const { interval, apiKey } = next;
 
-			// fiber 操作は MAIN world でしか動かないため、bridge を注入する。
+			// ページの状態操作は MAIN world でしか動かないため、bridge を注入する。
 			bridge ??= injectScript("/comment-bridge.js", { keepInDom: true });
 			const { script } = await bridge;
 			if (ctx.isInvalid || version !== generation) return;
@@ -210,15 +260,42 @@ export default defineContentScript({
 			});
 			const start = () => {
 				if (ctx.isInvalid) return;
+				const pr = pullRequestRefFromPath(location.pathname);
+				if (pr) {
+					// public API で変化を見つけるのに API キーが要る。無ければ内部エンドポイントを
+					// 定期的に叩く代替はせず、監視しない。
+					if (!apiKey) return;
+					if (pollAlive && watchedPageKey === location.pathname) return;
+					disposePoll();
+					pollAlive = true;
+					watchedPageKey = location.pathname;
+					const path = location.pathname;
+					const pollVersion = generation;
+					stopPoll = pollWhileVisible(
+						createPullRequestWatcher({
+							backlog,
+							script,
+							ref: pr,
+							isActive: () =>
+								ctx.isValid &&
+								pollAlive &&
+								pollVersion === generation &&
+								location.pathname === path,
+						}),
+						interval * 1000,
+					);
+					syncLiveState();
+					return;
+				}
 				const issueKey = issueKeyFromPath(location.pathname);
 				if (!issueKey) return;
 				// 既存の #comments には同期呼び出しと onElementAppear の両方から届く。作り直すと
 				// baseline 取得が重複し、badge も一瞬消えるため、同じ課題の監視中は何もしない。
-				if (pollAlive && watchedIssueKey === issueKey) return;
+				if (pollAlive && watchedPageKey === issueKey) return;
 				disposePoll();
 				const pollVersion = generation;
 				pollAlive = true;
-				watchedIssueKey = issueKey;
+				watchedPageKey = issueKey;
 				stopPoll = pollWhileVisible(
 					createIssueWatcher({
 						backlog,
@@ -247,7 +324,8 @@ export default defineContentScript({
 			if (
 				newUrl.pathname !== oldUrl.pathname &&
 				pollAlive &&
-				issueKeyFromPath(newUrl.pathname) !== watchedIssueKey
+				(issueKeyFromPath(newUrl.pathname) ?? newUrl.pathname) !==
+					watchedPageKey
 			)
 				disposePoll();
 		});

@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
 	stopAppear: vi.fn(),
 	meta: vi.fn(async () => ({ id: 42, updated: "2026-01-01" })),
 	comments: vi.fn(async () => []),
+	probe: vi.fn(async () => ({
+		comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }],
+	})),
 	script: undefined as HTMLScriptElement | undefined,
 }));
 
@@ -37,6 +40,9 @@ vi.mock("@/utils/on-element-appear", () => ({
 	},
 }));
 vi.mock("@/utils/fetch-issue-meta", () => ({ fetchIssueMeta: mocks.meta }));
+vi.mock("@/utils/fetch-pull-request-probe", () => ({
+	fetchPullRequestProbe: mocks.probe,
+}));
 vi.mock("backlog-js", () => ({
 	createClient: vi.fn(() => ({})),
 	getIssueComments: mocks.comments,
@@ -326,5 +332,69 @@ describe("複数スペースの設定", () => {
 		});
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(mocks.comments).toHaveBeenCalledOnce();
+	});
+});
+
+describe("PR ページの監視", () => {
+	const watchPullRequest = async (apiKey = "KEY", key = "example") => {
+		location.pathname = "/git/TEST/repo/pullRequests/1";
+		document.body.innerHTML = '<div id="comments"></div>';
+		await settingsStorage.setValue({
+			interval: 15,
+			spaces: [{ key, apiKey, enabled: true }],
+		});
+		const sync = vi.fn();
+		mocks.script?.addEventListener("lfb:sync-pull-request", sync);
+		await content.main(ctx);
+		return sync;
+	};
+	it("public API で取得した結果を渡して同期し、完了までは次の取得をしない", async () => {
+		const sync = await watchPullRequest();
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.probe).toHaveBeenCalledTimes(1);
+		expect(mocks.probe).toHaveBeenCalledWith(expect.anything(), {
+			projectKey: "TEST",
+			repoName: "repo",
+			number: 1,
+		});
+		expect(sync).toHaveBeenCalledTimes(1);
+		expect(liveStates()).toContain(true);
+		expect(mocks.meta).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.probe).toHaveBeenCalledTimes(1);
+		mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.probe).toHaveBeenCalledTimes(2);
+		ctx.notifyInvalidated();
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.probe).toHaveBeenCalledTimes(2);
+	});
+	it("MAIN world へ渡すイベントに API キーを含めない", async () => {
+		const sync = await watchPullRequest("SECRET-KEY");
+		await vi.advanceTimersByTimeAsync(15000);
+		const event = sync.mock.calls[0]?.[0] as CustomEvent;
+		expect(JSON.parse(event.detail)).toEqual({
+			comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }],
+		});
+		expect(String(event.detail)).not.toContain("SECRET-KEY");
+	});
+	it("API キーが無ければ PR を監視しない", async () => {
+		const sync = await watchPullRequest("");
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.probe).not.toHaveBeenCalled();
+		expect(sync).not.toHaveBeenCalled();
+		expect(liveStates()).not.toContain(true);
+	});
+	it("対象外の Space では PR を監視しない", async () => {
+		const sync = await watchPullRequest("KEY", "other");
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.probe).not.toHaveBeenCalled();
+		expect(sync).not.toHaveBeenCalled();
+	});
+	it("public API の取得に失敗した tick ではページへ同期を依頼しない", async () => {
+		mocks.probe.mockResolvedValueOnce(null as never);
+		const sync = await watchPullRequest();
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(sync).not.toHaveBeenCalled();
 	});
 });

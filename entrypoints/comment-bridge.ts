@@ -1,15 +1,21 @@
 import { applyCommentMetaPatch } from "@/utils/apply-comment-meta-patch";
 import { applyStarMapPatch } from "@/utils/apply-star-map-patch";
+import { pullRequestRefFromPath } from "@/utils/backlog";
 import {
 	BRIDGE_EVENT,
 	parseCommentMetaPatchList,
 	parseIssueRef,
+	parsePullRequestProbe,
 	parseStarMapPatch,
 	type StateResponse,
 } from "@/utils/bridge-protocol";
 import { debugLog } from "@/utils/debug-log";
 import { fetchInternalComments } from "@/utils/fetch-internal-comments";
 import { highlightComments } from "@/utils/highlight-comments";
+import {
+	findPullRequestStore,
+	syncPullRequest,
+} from "@/utils/pull-request-store";
 import {
 	type CommentState,
 	findCommentStarMapHook,
@@ -23,6 +29,36 @@ export default defineUnlistedScript(() => {
 	if (!script) return;
 
 	debugLog("bridge: injected into MAIN world");
+
+	script.addEventListener(BRIDGE_EVENT.syncPullRequest, (event) => {
+		const probe = parsePullRequestProbe(
+			event instanceof CustomEvent ? event.detail : undefined,
+		);
+		void (async () => {
+			try {
+				if (!probe) return;
+				const path = location.pathname;
+				const ref = pullRequestRefFromPath(path);
+				const store = findPullRequestStore(
+					(window as unknown as { ko?: unknown }).ko,
+					document.getElementById("comments"),
+				);
+				if (
+					!ref ||
+					!store ||
+					store.projectKey !== ref.projectKey ||
+					store.repoName !== ref.repoName ||
+					store.number !== ref.number
+				)
+					return;
+				await syncPullRequest(store, probe, () => location.pathname === path);
+			} catch (err) {
+				debugLog("bridge: pull request sync failed", err);
+			} finally {
+				script.dispatchEvent(new CustomEvent(BRIDGE_EVENT.pullRequestSynced));
+			}
+		})();
+	});
 
 	const readStateResponse = (): StateResponse => {
 		const found = findCommentStateHook();
