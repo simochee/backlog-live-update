@@ -8,12 +8,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      VP_GIT_HOOKS: "0"
     steps:
-      - uses: actions/checkout@v4
-      # mise.toml に固定したツール(bun)をそのまま使い、ローカルと CI の差をなくす。
-      - uses: jdx/mise-action@v2
-      - run: bun install --frozen-lockfile
-      # lefthook の pre-push と同じ 3 チェック。hook を --no-verify で飛ばしても CI が守る。
-      - run: bunx biome ci --no-errors-on-unmatched .
-      - run: bun run compile
-      - run: bunx vitest run --passWithNoTests
+      - uses: actions/checkout@v7.0.1
+      # .node-version と lockfile に固定したツールを使い、ローカルと CI の差をなくす。
+      - uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          version: 1.5.0
+          node-version-file: .node-version
+          cache: true
+          run-install: false
+      - run: vp install --frozen-lockfile
+      # pre-push と同じ 3 チェック。hook を --no-verify で飛ばしても CI が守る。
+      - run: vp exec biome ci --no-errors-on-unmatched .
+      - run: vp run compile
+      - run: vp test run
+      - run: vp run build
+      - run: vp run build:firefox
+      - run: vp run lint:firefox
