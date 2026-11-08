@@ -26,7 +26,27 @@ export const App = () => {
 	const [page, setPage] = useState<Page>({ kind: "main" });
 	const [suggestion, setSuggestion] = useState<SuggestedSpace>();
 	const [saveError, setSaveError] = useState(false);
-	const saveQueue = useRef(Promise.resolve());
+	const heading = useRef<HTMLHeadingElement>(null);
+	const main = useRef<HTMLElement>(null);
+	const returnFocus = useRef<string | undefined>(undefined);
+	const navigated = useRef(false);
+	useEffect(() => {
+		if (!navigated.current) return;
+		const opener =
+			page.kind === "main"
+				? [
+						...(main.current?.querySelectorAll<HTMLButtonElement>(
+							"[data-focus-key]",
+						) ?? []),
+					].find((button) => button.dataset.focusKey === returnFocus.current)
+				: undefined;
+		(opener ?? heading.current)?.focus({ preventScroll: true });
+	}, [page]);
+	const navigate = (next: Page, focusKey: string) => {
+		returnFocus.current = focusKey;
+		navigated.current = true;
+		setPage(next);
+	};
 	useEffect(() => {
 		let active = true;
 		void browser.tabs
@@ -41,17 +61,14 @@ export const App = () => {
 			active = false;
 		};
 	}, []);
-	const update = (inputs: Settings) => {
+	const update = async (inputs: Settings) => {
 		setValues(inputs);
-		// 遅い書き込みが新しい入力を上書きしないよう、保存の順序を保つ。
-		saveQueue.current = saveQueue.current.then(async () => {
-			try {
-				await settingsStorage.setValue(inputs);
-				setSaveError(false);
-			} catch {
-				setSaveError(true);
-			}
-		});
+		try {
+			await settingsStorage.setValue(inputs);
+			setSaveError(false);
+		} catch {
+			setSaveError(true);
+		}
 	};
 	const updateSpace = (next: SpaceConfig) =>
 		update({
@@ -66,7 +83,7 @@ export const App = () => {
 			? values.spaces.find((space) => space.key === page.key)
 			: undefined;
 	return (
-		<main>
+		<main ref={main}>
 			<header>
 				{page.kind !== "main" && (
 					<button
@@ -78,7 +95,7 @@ export const App = () => {
 						←
 					</button>
 				)}
-				<h1>
+				<h1 ref={heading} tabIndex={-1}>
 					{page.kind === "main"
 						? "Live for Backlog"
 						: page.kind === "add"
@@ -91,7 +108,7 @@ export const App = () => {
 					<>
 						<section aria-labelledby="spaces-heading">
 							<h2 id="spaces-heading">Spaces</h2>
-							<div className="card">
+							<div className="card row-card">
 								{suggestion &&
 									!values.spaces.some(
 										(space) => space.key === suggestion.key,
@@ -99,11 +116,16 @@ export const App = () => {
 										<button
 											className="row row-button suggestion"
 											type="button"
-											onClick={() => setPage({ kind: "add", suggestion })}
+											data-focus-key="suggestion"
+											onClick={() =>
+												navigate({ kind: "add", suggestion }, "suggestion")
+											}
 										>
 											<span aria-hidden="true">＋</span>
 											<span>Add {suggestion.key}</span>
-											<span aria-hidden="true">›</span>
+											<span className="chevron" aria-hidden="true">
+												›
+											</span>
 										</button>
 									)}
 								{values.spaces.length === 0 && (
@@ -114,9 +136,12 @@ export const App = () => {
 										<button
 											className="space-link"
 											type="button"
-											aria-label={`Edit ${space.key}`}
+											data-focus-key={`space:${space.key}`}
 											onClick={() =>
-												setPage({ kind: "detail", key: space.key })
+												navigate(
+													{ kind: "detail", key: space.key },
+													`space:${space.key}`,
+												)
 											}
 										>
 											<span className="row-text">
@@ -149,17 +174,20 @@ export const App = () => {
 								<button
 									className="row row-button"
 									type="button"
-									onClick={() => setPage({ kind: "add" })}
+									data-focus-key="add-space"
+									onClick={() => navigate({ kind: "add" }, "add-space")}
 								>
 									<span aria-hidden="true">＋</span>
 									<span>Add space</span>
-									<span aria-hidden="true">›</span>
+									<span className="chevron" aria-hidden="true">
+										›
+									</span>
 								</button>
 							</div>
 						</section>
 						<section aria-labelledby="preferences-heading">
 							<h2 id="preferences-heading">Preferences</h2>
-							<div className="card">
+							<div className="card row-card">
 								<div className="row interval-row">
 									<label className="row-text" htmlFor="interval">
 										<span>Polling interval</span>

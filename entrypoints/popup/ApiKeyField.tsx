@@ -26,7 +26,7 @@ export function ApiKeyField({
 				<button
 					type="button"
 					aria-controls="api-key"
-					aria-label={visible ? "Hide API Key" : "Show API Key"}
+					aria-label="Show API key"
 					aria-pressed={visible}
 					onClick={() => setVisible(!visible)}
 				>
