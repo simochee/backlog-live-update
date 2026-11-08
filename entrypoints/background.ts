@@ -1,5 +1,9 @@
 import { debugLog } from "@/utils/debug-log";
 import { isLiveStateMessage } from "@/utils/live-state-message";
+import {
+	parseSuggestedSpace,
+	suggestedSpaceStorage,
+} from "@/utils/suggested-space";
 
 // 空白文字 + 赤背景。空文字だと badge 自体が描画されないため text は " " 固定。
 const BADGE_TEXT = " ";
@@ -9,6 +13,14 @@ export default defineBackground(() => {
 	const action = browser.action;
 	debugLog("background boot", { hasAction: action != null });
 	if (action == null) return;
+	action.onClicked.addListener(async (tab) => {
+		try {
+			await suggestedSpaceStorage.setValue(parseSuggestedSpace(tab.url));
+		} catch (err) {
+			debugLog("suggested space save failed", err);
+		}
+		await browser.runtime.openOptionsPage();
+	});
 
 	browser.runtime.onMessage.addListener((message, sender) => {
 		const tabId = sender.tab?.id;

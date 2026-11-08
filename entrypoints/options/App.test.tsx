@@ -1,7 +1,6 @@
 import { act, Suspense } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import { browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { Settings } from "@/utils/settings";
 
@@ -243,57 +242,57 @@ it("削除を確認してからスペースだけを削除し一覧へ戻る", a
 	});
 	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
 });
-it("アクティブな Backlog タブを提案し origin に対応する API 設定へのリンクを表示する", async () => {
-	const query = vi.spyOn(browser.tabs, "query").mockImplementation(() =>
-		Promise.resolve([
-			{
-				id: 1,
-				index: 0,
-				active: true,
-				highlighted: true,
-				pinned: false,
-				incognito: false,
-				url: "https://nulab.backlog.jp/view/ABC-1",
-			},
-		]),
-	);
+it("クリック元のスペースを session storage から提案し API 設定を新しいタブで開く", async () => {
+	await fakeBrowser.storage.session.set({
+		suggestedSpace: { key: "nulab", origin: "https://nulab.backlog.jp" },
+	});
 	await renderApp();
-	expect(query).toHaveBeenCalledWith({ active: true, currentWindow: true });
 	await click("Add nulab");
 	expect(input("space-key").value).toBe("nulab");
 	expect(container.querySelector("a")?.href).toBe(
 		"https://nulab.backlog.jp/EditApiSettings.action",
 	);
+	expect(container.querySelector("a")?.target).toBe("_blank");
 	await changeText("space-key", "different");
 	expect(container.querySelector("a")).toBeNull();
 });
-it.each([
-	undefined,
-	"https://example.backlog.com/view/P-1",
-	"https://example.com",
-])("URL 不明や登録済みや外部タブでは提案しない (%s)", async (url) => {
-	vi.spyOn(browser.tabs, "query").mockImplementation(() =>
-		Promise.resolve([
-			{
-				id: 1,
-				index: 0,
-				active: true,
-				highlighted: true,
-				pinned: false,
-				incognito: false,
-				url,
-			},
-		]),
-	);
+it("開いたまま別のスペースをクリックすると提案が更新され外部タブでは消える", async () => {
 	await renderApp();
-	expect(
-		[...container.querySelectorAll("button")].some((element) =>
-			element.textContent?.includes("Add example"),
-		),
-	).toBe(false);
+	await act(() =>
+		fakeBrowser.storage.session.set({
+			suggestedSpace: { key: "nulab", origin: "https://nulab.backlog.jp" },
+		}),
+	);
+	expect(button("Add nulab")).toBeDefined();
+	await act(() =>
+		fakeBrowser.storage.session.set({
+			suggestedSpace: { key: "other", origin: "https://other.backlog.com" },
+		}),
+	);
+	expect(container.textContent).not.toContain("Add nulab");
+	expect(button("Add other")).toBeDefined();
+	await act(() => fakeBrowser.storage.session.remove("suggestedSpace"));
+	expect(container.textContent).not.toContain("Add other");
 });
-it("タブの取得が失敗しても設定を編集できる", async () => {
-	vi.spyOn(browser.tabs, "query").mockRejectedValue(new Error("unavailable"));
+it("登録済みスペースは提案せず新規登録後も提案を隠す", async () => {
+	await fakeBrowser.storage.session.set({
+		suggestedSpace: { key: "example", origin: "https://example.backlog.com" },
+	});
+	await renderApp();
+	expect(container.textContent).not.toContain("Add example");
+	await act(() =>
+		fakeBrowser.storage.session.set({
+			suggestedSpace: { key: "other", origin: "https://other.backlog.com" },
+		}),
+	);
+	await click("Add other");
+	await click("Add");
+	expect(container.textContent).not.toContain("Add other");
+	expect((await stored()).spaces.some((space) => space.key === "other")).toBe(
+		true,
+	);
+});
+it("提案がなくても手動でスペースを追加できる", async () => {
 	await renderApp();
 	await click("Add space");
 	expect(input("space-key").value).toBe("");

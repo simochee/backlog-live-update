@@ -12,7 +12,7 @@
 	--error: #b3261e;
 	--shadow: 0 1px 2px #20212426;
 	font-family: system-ui, sans-serif;
-	font-size: 13px;
+	font-size: 14px;
 	color: var(--text);
 	background: var(--background);
 }
@@ -35,8 +35,8 @@
 	box-sizing: border-box;
 }
 body {
-	width: 360px;
 	margin: 0;
+	min-height: 100vh;
 }
 header {
 	display: flex;
@@ -53,6 +53,19 @@ h1 {
 	font-weight: 500;
 	overflow-wrap: anywhere;
 }
+.app-title {
+	font-size: 16px;
+	font-weight: 500;
+}
+.app-bar {
+	padding-inline: 28px;
+	min-height: 68px;
+}
+.page-heading {
+	padding: 0 0 20px;
+	background: transparent;
+	border: 0;
+}
 h2 {
 	margin: 0 0 10px 12px;
 	color: var(--muted);
@@ -60,7 +73,9 @@ h2 {
 	font-weight: 500;
 }
 .page {
-	padding: 20px 12px;
+	max-width: 728px;
+	margin-inline: auto;
+	padding: 32px 24px;
 }
 section + section {
 	margin-top: 24px;
@@ -90,7 +105,7 @@ section + section {
 }
 .description {
 	color: var(--muted);
-	font-size: 11px;
+	font-size: 12px;
 	line-height: 1.5;
 }
 p {
