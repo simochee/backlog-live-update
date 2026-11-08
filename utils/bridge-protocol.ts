@@ -99,7 +99,10 @@ export const PullRequestProbeSchema = v.object({
 			stars: v.array(ProbeStarSchema),
 		}),
 	),
-	pullRequest: v.object({ stars: v.array(ProbeStarSchema) }),
+	pullRequest: v.object({
+		updated: v.string(),
+		stars: v.array(ProbeStarSchema),
+	}),
 	// false のときは直近の窓だけで、窓より古いコメントの有無は分からない。
 	complete: v.boolean(),
 });
