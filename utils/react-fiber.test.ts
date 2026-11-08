@@ -3,6 +3,7 @@ import {
 	type CommentState,
 	findCommentStateHook,
 	findQueryClient,
+	findRootFiber,
 	isCommentState,
 	walkFibers,
 	walkHooks,
@@ -50,10 +51,49 @@ function mountRoot(root: Fiber) {
 		stateNode: { current: root },
 	};
 	document.body.appendChild(container);
+	return container;
 }
 
 afterEach(() => {
 	document.body.replaceChildren();
+});
+
+describe("findRootFiber", () => {
+	it("キャッシュ済み container からも最新の current を返す", () => {
+		const first = fiber(3);
+		const container = mountRoot(first);
+		expect(findRootFiber()).toBe(first);
+		const next = fiber(3);
+		(container as unknown as Record<string, unknown>).__reactContainer$test = {
+			stateNode: { current: next },
+		};
+		expect(findRootFiber()).toBe(next);
+	});
+
+	it("container が DOM から外れたら新しい root を探す", () => {
+		const container = mountRoot(fiber(3));
+		findRootFiber();
+		container.remove();
+		const next = fiber(3);
+		mountRoot(next);
+		expect(findRootFiber()).toBe(next);
+	});
+
+	it("container の key が消えたら新しい root を探す", () => {
+		const container = mountRoot(fiber(3));
+		findRootFiber();
+		delete (container as unknown as Record<string, unknown>)
+			.__reactContainer$test;
+		const next = fiber(3);
+		mountRoot(next);
+		expect(findRootFiber()).toBe(next);
+	});
+
+	it("探索開始要素の外にあるキャッシュを返さない", () => {
+		mountRoot(fiber(3));
+		findRootFiber();
+		expect(findRootFiber(document.createElement("div"))).toBeNull();
+	});
 });
 
 describe("walkFibers", () => {
