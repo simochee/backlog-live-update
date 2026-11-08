@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import type { ProbeStar, PullRequestProbe } from "./bridge-protocol";
+import { debugLog } from "./debug-log";
 
 interface Observable<T> {
 	(): T;
@@ -279,7 +280,10 @@ export function syncPullRequest(
 		guarded.add(store);
 	}
 	const task = (async () => {
-		await appendNewComments(store, probe, isActive);
+		// 削除・スター・編集・本体は public API の結果だけで判断できるので、新着の取得失敗で止めない。
+		await appendNewComments(store, probe, isActive).catch((err) =>
+			debugLog("pull request: fetching new comments failed", err),
+		);
 		if (!isActive()) return;
 		removeDeletedComments(store, probe);
 		reflectStars(store, probe);
