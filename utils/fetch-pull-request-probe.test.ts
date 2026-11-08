@@ -30,19 +30,51 @@ describe("PR の public API の取得", () => {
 			headers: { "Backlog-API-Key": "KEY" },
 		});
 	});
-	it("コメントの id と作成日時だけを返す", async () => {
+	it("コメントの id と作成日時と更新日時だけを返す", async () => {
 		mockFetch(() =>
 			jsonResponse([
-				{ id: 2, created: "2026-11-08T09:44:09Z", content: "x" },
-				{ id: 1, created: "2026-11-08T09:44:08Z", content: "y" },
+				{
+					id: 2,
+					created: "2026-11-08T09:44:09Z",
+					updated: "2026-11-08T09:50:00Z",
+					content: "x",
+				},
+				{
+					id: 1,
+					created: "2026-11-08T09:44:08Z",
+					updated: "2026-11-08T09:44:08Z",
+					content: "y",
+				},
 			]),
 		);
 		expect(await fetchPullRequestProbe(client(), ref)).toEqual({
 			comments: [
-				{ id: 2, created: "2026-11-08T09:44:09Z" },
-				{ id: 1, created: "2026-11-08T09:44:08Z" },
+				{
+					id: 2,
+					created: "2026-11-08T09:44:09Z",
+					updated: "2026-11-08T09:50:00Z",
+				},
+				{
+					id: 1,
+					created: "2026-11-08T09:44:08Z",
+					updated: "2026-11-08T09:44:08Z",
+				},
 			],
+			complete: true,
 		});
+	});
+	it("100 件に達したら窓より古いコメントがあり得ると伝える", async () => {
+		const stamp = "2026-11-08T09:44:08Z";
+		mockFetch(() =>
+			jsonResponse(
+				Array.from({ length: 100 }, (_, i) => ({
+					id: 100 - i,
+					created: stamp,
+					updated: stamp,
+				})),
+			),
+		);
+		expect((await fetchPullRequestProbe(client(), ref))?.complete).toBe(false);
 	});
 	it("取得に失敗したら null を返す", async () => {
 		mockFetch(() => jsonResponse({}, false));

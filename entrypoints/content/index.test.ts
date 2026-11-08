@@ -389,9 +389,9 @@ describe("PR ページの監視", () => {
 		const sync = await watchPullRequest("SECRET-KEY");
 		await vi.advanceTimersByTimeAsync(15000);
 		const event = sync.mock.calls[0]?.[0] as CustomEvent;
-		expect(JSON.parse(event.detail)).toEqual({
-			comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }],
-		});
+		expect(JSON.parse(event.detail)).toEqual(
+			await mocks.probe.mock.results[0]?.value,
+		);
 		expect(String(event.detail)).not.toContain("SECRET-KEY");
 	});
 	it("API キーが無ければ PR を監視しない", async () => {
