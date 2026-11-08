@@ -230,6 +230,9 @@ input:focus-visible,
 select:focus-visible {
 	outline-offset: 2px;
 }
+h1[tabindex="-1"]:focus {
+	outline: none;
+}
 .back {
 	border: 0;
 	padding: 4px 8px;
