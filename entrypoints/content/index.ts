@@ -14,7 +14,6 @@ import {
 import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
 import { buildStarMapPatch } from "@/utils/build-star-map-patch";
 import { debugLog } from "@/utils/debug-log";
-import { createPushDetector } from "@/utils/detect-pull-request-push";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
 import {
 	fetchPullRequestProbe,
@@ -192,14 +191,11 @@ function createPullRequestWatcher({
 	ref: PullRequestRef;
 	isActive: () => boolean;
 }): () => Promise<void> {
-	const detectPush = createPushDetector(backlog, ref.projectKey);
 	return async () => {
 		if (!isActive()) return;
-		const fetched = await fetchPullRequestProbe(backlog, ref);
-		if (!isActive() || !fetched) return;
-		const historyChanged = await detectPush(fetched.push);
-		if (!isActive()) return;
-		await requestPullRequestSync(script, { ...fetched.probe, historyChanged });
+		const probe = await fetchPullRequestProbe(backlog, ref);
+		if (!isActive() || !probe) return;
+		await requestPullRequestSync(script, probe);
 	};
 }
 

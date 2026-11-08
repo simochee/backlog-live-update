@@ -103,8 +103,6 @@ export const PullRequestProbeSchema = v.object({
 		updated: v.string(),
 		stars: v.array(ProbeStarSchema),
 	}),
-	// PR の branch / base への push があったかは content script が public API で判定する。
-	historyChanged: v.boolean(),
 	// false のときは直近の窓だけで、窓より古いコメントの有無は分からない。
 	complete: v.boolean(),
 });

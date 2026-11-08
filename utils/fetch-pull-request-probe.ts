@@ -1,11 +1,9 @@
 import {
 	type createClient,
-	getGitRepository,
 	getPullRequest,
 	getPullRequestComments,
 } from "backlog-js";
 import type { ProbeStar, PullRequestProbe } from "./bridge-protocol";
-import type { PushTarget } from "./detect-pull-request-push";
 
 // public API の count 上限。新着の検知はこの窓の範囲に限る。
 export const PROBE_COMMENT_COUNT = 100;
@@ -41,48 +39,33 @@ function toProbeStars(
 	);
 }
 
-export interface FetchedPullRequestProbe {
-	probe: Omit<PullRequestProbe, "historyChanged">;
-	// リポジトリ全体の最終 push 日時と PR のブランチ。ブランチ単位の先頭コミットは public API に無い。
-	push: PushTarget;
-}
-
 // ページ側の内部エンドポイントを呼ぶかどうかの判断材料を、public API だけで集める。
 export async function fetchPullRequestProbe(
 	backlog: ReturnType<typeof createClient>,
 	{ projectKey, repoName, number }: PullRequestRef,
-): Promise<FetchedPullRequestProbe | null> {
+): Promise<PullRequestProbe | null> {
 	try {
 		const project = encodeURIComponent(projectKey);
-		const repoPath = encodeURIComponent(repoName);
-		const [comments, pullRequest, repository] = await Promise.all([
-			getPullRequestComments(backlog, project, repoPath, number, {
+		const repository = encodeURIComponent(repoName);
+		const [comments, pullRequest] = await Promise.all([
+			getPullRequestComments(backlog, project, repository, number, {
 				count: PROBE_COMMENT_COUNT,
 				order: "desc",
 			}),
-			getPullRequest(backlog, project, repoPath, number),
-			getGitRepository(backlog, project, repoPath),
+			getPullRequest(backlog, project, repository, number),
 		]);
 		return {
-			probe: {
-				comments: comments.map(({ id, created, updated, stars }) => ({
-					id,
-					created,
-					updated,
-					stars: toProbeStars(stars),
-				})),
-				pullRequest: {
-					updated: pullRequest.updated,
-					stars: toProbeStars(pullRequest.stars),
-				},
-				complete: comments.length < PROBE_COMMENT_COUNT,
+			comments: comments.map(({ id, created, updated, stars }) => ({
+				id,
+				created,
+				updated,
+				stars: toProbeStars(stars),
+			})),
+			pullRequest: {
+				updated: pullRequest.updated,
+				stars: toProbeStars(pullRequest.stars),
 			},
-			push: {
-				pushedAt: repository.pushedAt ?? null,
-				repositoryId: pullRequest.repositoryId,
-				branch: pullRequest.branch,
-				base: pullRequest.base,
-			},
+			complete: comments.length < PROBE_COMMENT_COUNT,
 		};
 	} catch {
 		return null;

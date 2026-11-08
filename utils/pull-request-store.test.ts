@@ -68,12 +68,10 @@ function fixture(
 			rawComment(id, T0, T1),
 		);
 	const getPullRequest = vi.fn().mockResolvedValue(rawDetail(T1, "renamed"));
-	const initHistory = vi.fn().mockResolvedValue(undefined);
 	const pathMap = new Map<string, PullRequestComment[]>();
 	const store: PullRequestStore = {
 		starJsons: observable<unknown[]>([]),
 		pullRequest: observable<unknown>(rawDetail()),
-		initHistory,
 		projectKey: "TEST",
 		repoName: "repo",
 		number: 1,
@@ -101,7 +99,6 @@ function fixture(
 		getPullRequestComments,
 		getPullRequestComment,
 		getPullRequest,
-		initHistory,
 	};
 }
 // 内部エンドポイントとして呼ばれうるページ側の関数を、変化が無い tick で集計する。
@@ -110,13 +107,11 @@ function internalCalls(f: ReturnType<typeof fixture>) {
 		f.getPullRequestComments,
 		f.getPullRequestComment,
 		f.getPullRequest,
-		f.initHistory,
 	].reduce((sum, fn) => sum + fn.mock.calls.length, 0);
 }
 const probeOf = (...ids: number[]) => ({
 	comments: ids.map((id) => ({ id, created: T0, updated: T0, stars: [] })),
 	pullRequest: { updated: T0, stars: [] },
-	historyChanged: false,
 	complete: true,
 });
 
@@ -146,7 +141,6 @@ describe("PR の新着コメントの同期", () => {
 				{ id: 1, created: "2026-11-08T09:44:07Z", updated: T0, stars: [] },
 			],
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: true,
 		});
 		expect(getPullRequestComments).toHaveBeenCalledWith(
@@ -210,7 +204,6 @@ describe("PR コメントの編集の同期", () => {
 	const edited = (id: number) => ({
 		comments: [{ id, created: T0, updated: T1, stars: [] }],
 		pullRequest: { updated: T0, stars: [] },
-		historyChanged: false,
 		complete: true,
 	});
 	it("更新日時が進んだコメントだけ整形済みの本文を取り直して反映する", async () => {
@@ -221,7 +214,6 @@ describe("PR コメントの編集の同期", () => {
 				{ id: 2, created: T0, updated: T0, stars: [] },
 			],
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: true,
 		});
 		expect(getPullRequestComment).toHaveBeenCalledOnce();
@@ -253,7 +245,6 @@ describe("PR コメントの編集の同期", () => {
 				{ id: 2, created: T0, updated: T1, stars: [] },
 			],
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -284,7 +275,6 @@ describe("PR コメントの編集の同期", () => {
 				{ id: 1, created: T0, updated: "2026-11-08T09:00:00Z", stars: [] },
 			],
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -323,7 +313,6 @@ describe("PR コメントの削除の同期", () => {
 				stars: [],
 			})),
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: false,
 		});
 		expect(comments.map((c) => c.id)).toEqual([1, 5, 6, 8]);
@@ -371,7 +360,6 @@ describe("PR 本文とコメントのスターの同期", () => {
 			stars,
 		})),
 		pullRequest: { updated: T0, stars: pullRequest },
-		historyChanged: false,
 		complete: true,
 	});
 	it("public API のスターから画面の形を組み立てて内部エンドポイントを呼ばずに反映する", async () => {
@@ -486,38 +474,6 @@ describe("PR 本体の同期", () => {
 	});
 });
 
-describe("push によるコミット履歴の同期", () => {
-	const pushed = (historyChanged: boolean) => ({
-		...probeOf(),
-		historyChanged,
-	});
-	it("PR のブランチへの push が無い tick では履歴を読み直さない", async () => {
-		const { store, initHistory } = fixture();
-		await syncPullRequest(store, pushed(false));
-		await syncPullRequest(store, pushed(false));
-		expect(initHistory).not.toHaveBeenCalled();
-	});
-	it("PR のブランチへの push があった tick で履歴を読み直す", async () => {
-		const { store, initHistory } = fixture();
-		await syncPullRequest(store, pushed(true));
-		expect(initHistory).toHaveBeenCalledOnce();
-		await syncPullRequest(store, pushed(false));
-		expect(initHistory).toHaveBeenCalledOnce();
-	});
-	it("履歴の取得に失敗したら次の同期で再試行する", async () => {
-		const { store, initHistory } = fixture();
-		initHistory.mockRejectedValueOnce(new Error("network"));
-		await expect(syncPullRequest(store, pushed(true))).rejects.toThrow();
-		await syncPullRequest(store, pushed(false));
-		expect(initHistory).toHaveBeenCalledTimes(2);
-	});
-	it("詳細エディタの操作中でも履歴は更新する", async () => {
-		const { store, initHistory } = fixture();
-		await syncPullRequest(store, pushed(true), undefined, () => true);
-		expect(initHistory).toHaveBeenCalledOnce();
-	});
-});
-
 describe("内部エンドポイントの呼び出し", () => {
 	it("public API に変化が無い tick ではページ側の関数を一切呼ばない", async () => {
 		const f = fixture([1, 2]);
@@ -529,7 +485,6 @@ describe("内部エンドポイントの呼び出し", () => {
 				stars: [],
 			})),
 			pullRequest: { updated: T0, stars: [] },
-			historyChanged: false,
 			complete: true,
 		};
 		await syncPullRequest(f.store, steady, undefined, () => false);

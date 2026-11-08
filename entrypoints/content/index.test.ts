@@ -12,22 +12,14 @@ import { ContentScriptContext } from "wxt/utils/content-script-context";
 import { DEFAULT_SETTINGS, settingsStorage } from "@/utils/settings";
 import content from "./index";
 
-const pushTarget = (pushedAt: string) => ({
-	pushedAt,
-	repositoryId: 5,
-	branch: "topic",
-	base: "main",
-});
 const mocks = vi.hoisted(() => ({
 	appear: undefined as undefined | (() => void),
 	stopAppear: vi.fn(),
 	meta: vi.fn(async () => ({ id: 42, updated: "2026-01-01" })),
 	comments: vi.fn(async () => []),
 	probe: vi.fn(async () => ({
-		probe: { comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }] },
-		push: pushTarget("2026-11-08T09:00:00Z"),
+		comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }],
 	})),
-	activities: vi.fn(async () => [] as unknown[]),
 	script: undefined as HTMLScriptElement | undefined,
 }));
 
@@ -54,7 +46,6 @@ vi.mock("@/utils/fetch-pull-request-probe", () => ({
 vi.mock("backlog-js", () => ({
 	createClient: vi.fn(() => ({})),
 	getIssueComments: mocks.comments,
-	getProjectActivities: mocks.activities,
 }));
 vi.mock("wxt/utils/inject-script", () => ({
 	injectScript: async () => ({ script: mocks.script }),
@@ -398,45 +389,10 @@ describe("PR ページの監視", () => {
 		const sync = await watchPullRequest("SECRET-KEY");
 		await vi.advanceTimersByTimeAsync(15000);
 		const event = sync.mock.calls[0]?.[0] as CustomEvent;
-		expect(JSON.parse(event.detail)).toEqual({
-			...(await mocks.probe.mock.results[0]?.value)?.probe,
-			historyChanged: false,
-		});
+		expect(JSON.parse(event.detail)).toEqual(
+			await mocks.probe.mock.results[0]?.value,
+		);
 		expect(String(event.detail)).not.toContain("SECRET-KEY");
-	});
-	it("PR の branch への push があった tick だけ履歴の取り直しを依頼する", async () => {
-		const sync = await watchPullRequest();
-		const historyChangedOf = (index: number) =>
-			JSON.parse((sync.mock.calls[index]?.[0] as CustomEvent).detail)
-				.historyChanged;
-		const tick = async () => {
-			await vi.advanceTimersByTimeAsync(15000);
-			mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
-		};
-		await tick();
-		mocks.probe.mockResolvedValue({
-			probe: { comments: [] },
-			push: pushTarget("2026-11-08T09:10:00Z"),
-		} as never);
-		mocks.activities.mockResolvedValue([
-			{
-				created: "2026-11-08T09:10:00Z",
-				content: { repository: { id: 5 }, ref: "refs/heads/other" },
-			},
-		]);
-		await tick();
-		mocks.probe.mockResolvedValue({
-			probe: { comments: [] },
-			push: pushTarget("2026-11-08T09:20:00Z"),
-		} as never);
-		mocks.activities.mockResolvedValue([
-			{
-				created: "2026-11-08T09:20:00Z",
-				content: { repository: { id: 5 }, ref: "refs/heads/topic" },
-			},
-		]);
-		await tick();
-		expect([0, 1, 2].map(historyChangedOf)).toEqual([false, false, true]);
 	});
 	it("API キーが無ければ PR を監視しない", async () => {
 		const sync = await watchPullRequest("");

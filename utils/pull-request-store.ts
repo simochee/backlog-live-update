@@ -24,7 +24,6 @@ export interface PullRequestComment extends StarTarget {
 
 export interface PullRequestStore extends StarTarget {
 	pullRequest: Observable<unknown>;
-	initHistory(): PromiseLike<unknown>;
 	projectKey: string;
 	repoName: string;
 	number: number;
@@ -59,7 +58,6 @@ export interface PullRequestStore extends StarTarget {
 const StoreSchema = v.object({
 	starJsons: v.function(),
 	pullRequest: v.function(),
-	initHistory: v.function(),
 	projectKey: v.string(),
 	repoName: v.string(),
 	number: v.number(),
@@ -287,7 +285,6 @@ export function syncPullRequest(
 		reflectStars(store, probe);
 		await reflectEditedComments(store, probe, isActive);
 		await reflectDetail(store, probe, isActive, isDetailBusy);
-		await reflectPush(store, probe, isActive);
 	})();
 	running.set(store, task);
 	void task.finally(() => running.delete(store)).catch(() => {});
@@ -371,19 +368,4 @@ async function reflectDetail(
 	)
 		return;
 	store.pullRequest(next.output);
-}
-
-const pendingHistory = new WeakSet<PullRequestStore>();
-
-// loadDiff は全ファイルの VM を再作成し、開いている差分やインライン入力を失わせ得るため、
-// ファイル差分は読み直さずコミット履歴だけ更新する。
-async function reflectPush(
-	store: PullRequestStore,
-	probe: PullRequestProbe,
-	isActive: () => boolean,
-): Promise<void> {
-	if (probe.historyChanged) pendingHistory.add(store);
-	if (!pendingHistory.has(store) || !isActive()) return;
-	await store.initHistory();
-	pendingHistory.delete(store);
 }
