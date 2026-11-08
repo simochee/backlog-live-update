@@ -32,8 +32,6 @@
 		"backlog-js": "^0.16.0",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
-		"react-var-ui": "^1.5.2",
-		"suspend-react": "^0.1.3",
 		"valibot": "^1.4.1"
 	}
 }

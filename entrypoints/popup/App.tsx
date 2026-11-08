@@ -1,40 +1,103 @@
-import { useState } from "react";
-import { VarCategory, VarSelect, VarString, VarUI } from "react-var-ui";
-import { suspend } from "suspend-react";
-import { type Settings, settingsStorage } from "@/utils/settings";
+import { use, useState } from "react";
+import {
+	INTERVAL_OPTIONS,
+	type Settings,
+	settingsStorage,
+} from "@/utils/settings";
 
-const INTERVAL_SELECT_OPTIONS = [
-	{ key: 15, label: "15s", value: 15 },
-	{ key: 30, label: "30s", value: 30 },
-	{ key: 60, label: "60s", value: 60 },
-	{ key: 300, label: "5m", value: 300 },
-	{ key: 600, label: "10m", value: 600 },
-];
+// Suspense retries must reuse the same promise instead of restarting the read.
+const settingsPromise = settingsStorage.getValue();
+
+function formatInterval(seconds: number): string {
+	return seconds <= 60 ? `${seconds}s` : `${seconds / 60}m`;
+}
 
 export const App = () => {
-	const settings = suspend(() => settingsStorage.getValue(), ["settings"]);
-
+	const settings = use(settingsPromise);
 	const [values, setValues] = useState(settings);
+	const [showApiKey, setShowApiKey] = useState(false);
+	const [saveError, setSaveError] = useState(false);
 
 	const update = async (inputs: Settings) => {
 		setValues(inputs);
-
-		await settingsStorage.setValue(inputs);
+		try {
+			await settingsStorage.setValue(inputs);
+			setSaveError(false);
+		} catch {
+			setSaveError(true);
+		}
 	};
 
 	return (
-		<VarUI onChange={update} values={values}>
-			<VarCategory label="Space">
-				<VarString label="Key" path="space.key" />
-				<VarString label="API Key" path="space.apiKey" />
-			</VarCategory>
-			<VarCategory label="Preferences">
-				<VarSelect
-					label="Interval"
-					path="interval"
-					options={INTERVAL_SELECT_OPTIONS}
+		<main>
+			<section aria-labelledby="space-heading">
+				<h2 id="space-heading">Space</h2>
+				<label htmlFor="space-key">Space Key</label>
+				<input
+					id="space-key"
+					type="text"
+					autoComplete="off"
+					spellCheck={false}
+					value={values.space.key}
+					onChange={(event) =>
+						update({
+							...values,
+							space: { ...values.space, key: event.target.value },
+						})
+					}
 				/>
-			</VarCategory>
-		</VarUI>
+				<label htmlFor="api-key">API Key</label>
+				<div className="secret-field">
+					<input
+						id="api-key"
+						type={showApiKey ? "text" : "password"}
+						autoComplete="off"
+						data-1p-ignore
+						data-lpignore="true"
+						spellCheck={false}
+						autoCapitalize="none"
+						value={values.space.apiKey}
+						onChange={(event) =>
+							update({
+								...values,
+								space: { ...values.space, apiKey: event.target.value },
+							})
+						}
+					/>
+					<button
+						type="button"
+						aria-controls="api-key"
+						aria-label={showApiKey ? "Hide API Key" : "Show API Key"}
+						aria-pressed={showApiKey}
+						onClick={() => setShowApiKey(!showApiKey)}
+					>
+						{showApiKey ? "Hide" : "Show"}
+					</button>
+				</div>
+			</section>
+			<section aria-labelledby="preferences-heading">
+				<h2 id="preferences-heading">Preferences</h2>
+				<label htmlFor="interval">Interval</label>
+				<select
+					id="interval"
+					value={values.interval}
+					onChange={(event) => {
+						const interval = INTERVAL_OPTIONS.find(
+							(option) => String(option) === event.target.value,
+						);
+						if (interval !== undefined) void update({ ...values, interval });
+					}}
+				>
+					{INTERVAL_OPTIONS.map((interval) => (
+						<option key={interval} value={interval}>
+							{formatInterval(interval)}
+						</option>
+					))}
+				</select>
+			</section>
+			{saveError && (
+				<p role="alert">Could not save settings. Please try again.</p>
+			)}
+		</main>
 	);
 };
