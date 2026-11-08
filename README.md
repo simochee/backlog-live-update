@@ -1,6 +1,9 @@
-# Live for Backlog
+# Backlog Live Update
 
-> Keep [Backlog](https://backlog.com/) alive without reloading.
+> Updates open [Backlog](https://backlog.com/) issues and pull requests without
+> reloading.
+
+This is an unofficial extension, not an official Nulab product.
 
 Click the extension's toolbar icon to open its options in the browser's
 extension settings. Clicking it on a Backlog page suggests that space for adding.

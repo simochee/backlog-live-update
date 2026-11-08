@@ -79,7 +79,7 @@ export const App = () => {
 		});
 	return (
 		<main>
-			<h1 className="visually-hidden">Live for Backlog</h1>
+			<h1 className="visually-hidden">Backlog Live Update</h1>
 			<section aria-labelledby="spaces-heading">
 				<h2 id="spaces-heading">Spaces</h2>
 				{values.spaces.length === 0 && (
