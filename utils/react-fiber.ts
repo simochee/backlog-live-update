@@ -50,6 +50,7 @@ export function findRootFiber(start: Element = document.body): Fiber | null {
 	const queue: Element[] = [start];
 	for (let index = 0; index < queue.length; index++) {
 		const element = queue[index];
+		if (!element) continue;
 		const key = Object.keys(element).find((k) =>
 			k.startsWith(REACT_CONTAINER_KEY_PREFIX),
 		);
