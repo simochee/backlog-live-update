@@ -21,7 +21,7 @@ export function SpaceForm({
 	const duplicate = spaces.some((space) => space.key === key);
 	return (
 		<form
-			className="card form-card"
+			className="card add-form"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (key && !duplicate) onAdd({ key, apiKey, enabled: true });
@@ -48,16 +48,19 @@ export function SpaceForm({
 					</p>
 				)}
 			</div>
-			<ApiKeyField value={apiKey} onChange={setApiKey} />
-			{suggestion && key === suggestion.key && (
-				<a
-					href={`${suggestion.origin}/EditApiSettings.action`}
-					target="_blank"
-					rel="noreferrer"
-				>
-					Get an API key
-				</a>
-			)}
+			<div>
+				<ApiKeyField value={apiKey} onChange={setApiKey} />
+				{suggestion && key === suggestion.key && (
+					<a
+						className="description api-help"
+						href={`${suggestion.origin}/EditApiSettings.action`}
+						target="_blank"
+						rel="noreferrer"
+					>
+						Get an API key
+					</a>
+				)}
+			</div>
 			<div className="actions">
 				<button type="button" onClick={onCancel}>
 					Cancel
@@ -81,7 +84,7 @@ export function SpaceDetail({
 }) {
 	const [confirming, setConfirming] = useState(false);
 	return (
-		<div className="card">
+		<div className="card row-card">
 			<label className="row" htmlFor="live-updates">
 				<span>Live updates</span>
 				<input

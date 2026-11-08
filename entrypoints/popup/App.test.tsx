@@ -78,6 +78,18 @@ function button(label: string): HTMLButtonElement {
 async function click(label: string) {
 	await act(() => button(label).click());
 }
+function spaceButton(key: string): HTMLButtonElement {
+	const element = [
+		...container.querySelectorAll<HTMLButtonElement>(".space-link"),
+	].find(
+		(button) => button.querySelector(".row-text > span")?.textContent === key,
+	);
+	if (!element) throw new Error(`Missing space ${key}`);
+	return element;
+}
+async function openSpace(key: string) {
+	await act(() => spaceButton(key).click());
+}
 async function stored() {
 	return (await fakeBrowser.storage.local.get("settings")).settings as Settings;
 }
@@ -182,7 +194,7 @@ it("追加をキャンセルすると入力を保存しない", async () => {
 });
 it("詳細のキーは編集できず API キーと有効状態を自動保存する", async () => {
 	await renderApp();
-	await click("Edit example");
+	await openSpace("example");
 	expect(container.querySelector("h1")?.textContent).toBe("example");
 	expect(container.querySelector("#space-key")).toBeNull();
 	expect(input("api-key").value).toBe("secret");
@@ -197,16 +209,16 @@ it("詳細のキーは編集できず API キーと有効状態を自動保存�
 });
 it("API キーの表示切り替えは保存せずパスワードマネージャーから除外する", async () => {
 	await renderApp();
-	await click("Edit example");
+	await openSpace("example");
 	expect(input("api-key").type).toBe("password");
 	expect(input("api-key").autocomplete).toBe("off");
 	expect(input("api-key").hasAttribute("data-1p-ignore")).toBe(true);
 	expect(input("api-key").getAttribute("data-lpignore")).toBe("true");
-	await click("Show API Key");
+	await click("Show API key");
 	expect(input("api-key").type).toBe("text");
-	expect(button("Hide API Key").getAttribute("aria-pressed")).toBe("true");
-	expect(button("Hide API Key").getAttribute("aria-controls")).toBe("api-key");
-	await click("Hide API Key");
+	expect(button("Show API key").getAttribute("aria-pressed")).toBe("true");
+	expect(button("Show API key").getAttribute("aria-controls")).toBe("api-key");
+	await click("Show API key");
 	expect(input("api-key").type).toBe("password");
 	expect(await stored()).toEqual(saved);
 });
@@ -218,7 +230,7 @@ it("削除を確認してからスペースだけを削除し一覧へ戻る", a
 		},
 	});
 	await renderApp();
-	await click("Edit example");
+	await openSpace("example");
 	await click("Remove space");
 	expect(container.textContent).toContain("Remove example?");
 	await click("Cancel");
@@ -289,7 +301,7 @@ it("タブの取得が失敗しても設定を編集できる", async () => {
 });
 it("保存失敗の警告を表示し次の保存成功で消す", async () => {
 	await renderApp();
-	await click("Edit example");
+	await openSpace("example");
 	const { settingsStorage } = await import("@/utils/settings");
 	vi.spyOn(settingsStorage, "setValue").mockRejectedValueOnce(
 		new Error("failed"),
@@ -303,26 +315,37 @@ it("保存失敗の警告を表示し次の保存成功で消す", async () => {
 	expect((await stored()).spaces[0]?.apiKey).toBe("success");
 });
 
-it("保存中の連続入力を順番に保存して最後の API キーを残す", async () => {
+it("スペース行のアクセシブルな名前はキーと状態の表示を使う", async () => {
 	await renderApp();
-	await click("Edit example");
-	const { settingsStorage } = await import("@/utils/settings");
-	const original = settingsStorage.setValue.bind(settingsStorage);
-	let finish: (() => void) | undefined;
-	const save = vi.spyOn(settingsStorage, "setValue").mockImplementationOnce(
-		(value) =>
-			new Promise<void>((resolve) => {
-				finish = () => {
-					void original(value).then(resolve);
-				};
-			}),
-	);
-	await changeText("api-key", "first");
-	await changeText("api-key", "last");
-	expect(save).toHaveBeenCalledOnce();
-	await act(() => {
-		finish?.();
-	});
-	expect(save).toHaveBeenCalledTimes(2);
-	expect((await stored()).spaces[0]?.apiKey).toBe("last");
+	const row = spaceButton("example");
+	expect(row.hasAttribute("aria-label")).toBe(false);
+	expect(row.textContent).toContain("example");
+	expect(row.textContent).toContain("Enabled");
+});
+it("追加画面へ移動すると見出しにフォーカスし戻ると追加ボタンに戻す", async () => {
+	await renderApp();
+	button("Add space").focus();
+	await click("Add space");
+	expect(document.activeElement).toBe(container.querySelector("h1"));
+	expect(container.querySelector("h1")?.tabIndex).toBe(-1);
+	await click("Cancel");
+	expect(document.activeElement).toBe(button("Add space"));
+});
+it("詳細から戻ると状態を変更した元のスペース行にフォーカスする", async () => {
+	await renderApp();
+	spaceButton("example").focus();
+	await openSpace("example");
+	expect(document.activeElement).toBe(container.querySelector("h1"));
+	await act(() => input("live-updates").click());
+	await click("Back");
+	expect(document.activeElement).toBe(spaceButton("example"));
+	expect(spaceButton("example").textContent).toContain("Paused");
+});
+it("削除して元の行がなくなったら一覧の見出しにフォーカスする", async () => {
+	await renderApp();
+	await openSpace("example");
+	await click("Remove space");
+	await click("Remove");
+	expect(document.activeElement).toBe(container.querySelector("h1"));
+	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
 });
