@@ -1,22 +1,15 @@
+import * as v from "valibot";
 import type { CommentMetaPatch } from "./bridge-protocol";
 import type { CommentState, PageComment } from "./react-fiber";
 
-/**
- * 内部 state(`CommentState`)に含まれる「comment 1 件分の通知配列」要素の最小 shape。
- * `notificationId` で public API 側の `id` と紐付け、`alreadyRead` を上書きする。
- */
-interface NotifyResource {
-	notificationId: number;
-	alreadyRead: boolean;
-	[key: string]: unknown;
-}
+const NotifyResourceSchema = v.looseObject({
+	notificationId: v.union([v.number(), v.nan()]),
+	alreadyRead: v.boolean(),
+});
+type NotifyResource = v.InferOutput<typeof NotifyResourceSchema>;
 
 function isNotifyResource(value: unknown): value is NotifyResource {
-	if (typeof value !== "object" || value === null) return false;
-	const v = value as Record<string, unknown>;
-	return (
-		typeof v.notificationId === "number" && typeof v.alreadyRead === "boolean"
-	);
+	return v.is(NotifyResourceSchema, value);
 }
 
 /**
