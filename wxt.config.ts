@@ -8,11 +8,11 @@ export default defineConfig({
 		baseIconPath: "assets/icon.svg",
 	},
 	manifest: ({ browser }) => ({
-		name: "Backlog Live Update",
-		description:
-			"Updates open Backlog issues and pull requests without reloading.",
+		name: "__MSG_extName__",
+		description: "__MSG_extDescription__",
+		default_locale: "en",
 		permissions: ["storage", "activeTab"],
-		action: { default_title: "Backlog Live Update" },
+		action: { default_title: "__MSG_extName__" },
 		...(browser === "firefox"
 			? {
 					browser_specific_settings: {
