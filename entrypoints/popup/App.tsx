@@ -129,7 +129,7 @@ export const App = () => {
 										</button>
 									)}
 								{values.spaces.length === 0 && (
-									<div className="row muted">No spaces yet</div>
+									<div className="row muted">No spaces added</div>
 								)}
 								{values.spaces.map((space) => (
 									<div className="row space-row" key={space.key}>
@@ -150,7 +150,7 @@ export const App = () => {
 													{!space.enabled
 														? "Paused"
 														: !space.apiKey
-															? "API key missing"
+															? "API Key not set"
 															: "Enabled"}
 												</span>
 											</span>

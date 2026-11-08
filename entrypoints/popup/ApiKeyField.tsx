@@ -10,7 +10,7 @@ export function ApiKeyField({
 	const [visible, setVisible] = useState(false);
 	return (
 		<div className="field">
-			<label htmlFor="api-key">API key</label>
+			<label htmlFor="api-key">API Key</label>
 			<div className="secret-field">
 				<input
 					id="api-key"
@@ -26,7 +26,7 @@ export function ApiKeyField({
 				<button
 					type="button"
 					aria-controls="api-key"
-					aria-label="Show API key"
+					aria-label="Show API Key"
 					aria-pressed={visible}
 					onClick={() => setVisible(!visible)}
 				>

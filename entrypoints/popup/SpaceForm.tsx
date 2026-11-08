@@ -28,7 +28,7 @@ export function SpaceForm({
 			}}
 		>
 			<div className="field">
-				<label htmlFor="space-key">Space</label>
+				<label htmlFor="space-key">Space Key</label>
 				<input
 					id="space-key"
 					autoComplete="off"
@@ -40,7 +40,7 @@ export function SpaceForm({
 					aria-invalid={duplicate}
 				/>
 				<p className="description" id="space-help">
-					Enter a space key, Backlog hostname, or URL.
+					Enter the space key, or paste a URL of your Backlog space.
 				</p>
 				{duplicate && (
 					<p id="space-error" role="alert">
@@ -57,7 +57,7 @@ export function SpaceForm({
 						target="_blank"
 						rel="noreferrer"
 					>
-						Get an API key
+						Open API settings
 					</a>
 				)}
 			</div>
