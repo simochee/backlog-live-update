@@ -367,5 +367,5 @@ async function reflectDetail(
 		next.output.updated < current.output.updated
 	)
 		return;
-	store.pullRequest(next.output);
+	store.pullRequest(response);
 }
