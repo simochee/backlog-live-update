@@ -23,6 +23,7 @@ export interface PullRequestComment extends StarTarget {
 }
 
 export interface PullRequestStore extends StarTarget {
+	pullRequest: Observable<unknown>;
 	projectKey: string;
 	repoName: string;
 	number: number;
@@ -34,6 +35,11 @@ export interface PullRequestStore extends StarTarget {
 		get(path: string): PullRequestComment[] | undefined;
 	};
 	pullRequestService: {
+		getPullRequest(
+			project: string,
+			repo: string,
+			number: number,
+		): PromiseLike<unknown>;
 		getPullRequestComment(
 			project: string,
 			repo: string,
@@ -51,6 +57,7 @@ export interface PullRequestStore extends StarTarget {
 
 const StoreSchema = v.object({
 	starJsons: v.function(),
+	pullRequest: v.function(),
 	projectKey: v.string(),
 	repoName: v.string(),
 	number: v.number(),
@@ -62,6 +69,7 @@ const StoreSchema = v.object({
 	pullRequestService: v.object({
 		getPullRequestComments: v.function(),
 		getPullRequestComment: v.function(),
+		getPullRequest: v.function(),
 	}),
 });
 const CommentSchema = v.object({
@@ -254,6 +262,7 @@ export function syncPullRequest(
 	store: PullRequestStore,
 	probe: PullRequestProbe,
 	isActive: () => boolean = () => true,
+	isDetailBusy: () => boolean = () => true,
 ): Promise<void> {
 	const pending = running.get(store);
 	if (pending) return pending;
@@ -275,8 +284,88 @@ export function syncPullRequest(
 		removeDeletedComments(store, probe);
 		reflectStars(store, probe);
 		await reflectEditedComments(store, probe, isActive);
+		await reflectDetail(store, probe, isActive, isDetailBusy);
 	})();
 	running.set(store, task);
 	void task.finally(() => running.delete(store)).catch(() => {});
 	return task;
+}
+
+const DetailSchema = v.looseObject({
+	updated: v.string(),
+	number: v.number(),
+	summary: v.string(),
+	description: v.string(),
+	formattedDescription: v.string(),
+	status: v.object({ id: v.number(), name: v.string() }),
+	localized: v.looseObject({ created: v.string() }),
+	createdUser: v.looseObject({ id: v.number() }),
+	attachments: v.array(v.looseObject({ size: v.number() })),
+	base: v.string(),
+	branch: v.string(),
+	assigner: v.nullable(v.looseObject({ id: v.number() })),
+	issue: v.nullable(v.looseObject({ id: v.number() })),
+	deleteBranchWithMerge: v.boolean(),
+});
+
+export function isPullRequestDetailBusy(
+	ko: unknown,
+	element: Element | null,
+): boolean {
+	if (!element || !v.is(v.object({ dataFor: v.function() }), ko)) return true;
+	const root: unknown = ko.dataFor(element);
+	if (
+		!v.is(
+			v.object({
+				pullRequestDetailEditor: v.object({
+					visible: v.function(),
+					inUpdate: v.function(),
+				}),
+				pullRequestDetail: v.object({
+					mergeFormVisible: v.function(),
+					closeFormVisible: v.function(),
+				}),
+			}),
+			root,
+		)
+	)
+		return true;
+	return !!(
+		root.pullRequestDetailEditor.visible() ||
+		root.pullRequestDetailEditor.inUpdate() ||
+		root.pullRequestDetail.mergeFormVisible() ||
+		root.pullRequestDetail.closeFormVisible()
+	);
+}
+
+async function reflectDetail(
+	store: PullRequestStore,
+	probe: PullRequestProbe,
+	isActive: () => boolean,
+	isBusy: () => boolean,
+): Promise<void> {
+	if (!isActive() || isBusy()) return;
+	const before = v.safeParse(DetailSchema, store.pullRequest());
+	if (
+		!before.success ||
+		!(Date.parse(probe.pullRequest.updated) > Date.parse(before.output.updated))
+	)
+		return;
+	const response = await store.pullRequestService.getPullRequest(
+		store.projectKey,
+		store.repoName,
+		store.number,
+	);
+	if (!isActive() || isBusy()) return;
+	const current = v.safeParse(DetailSchema, store.pullRequest());
+	const next = v.safeParse(DetailSchema, response);
+	// 通信中に自分の編集が保存された場合、古い取得結果で上書きしない。
+	if (
+		!current.success ||
+		!next.success ||
+		current.output.updated !== before.output.updated ||
+		next.output.updated < current.output.updated
+	)
+		return;
+	store.pullRequest(next.output);
 }
