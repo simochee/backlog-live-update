@@ -31,7 +31,7 @@ export function SpaceForm({
 	return (
 		<form
 			className="add-form"
-			aria-label="Add space"
+			aria-labelledby="add-heading"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (key && !duplicate) onAdd({ key, apiKey, enabled: true });

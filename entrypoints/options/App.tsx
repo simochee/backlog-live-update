@@ -35,6 +35,10 @@ export const App = () => {
 			restoreAddFocus.current = false;
 		}
 	});
+	const openAdd = (next: { suggestion?: SuggestedSpace }) => {
+		setExpandedKey(null);
+		setAdding(next);
+	};
 	const closeAdd = () => {
 		restoreAddFocus.current = true;
 		setAdding(null);
@@ -154,24 +158,29 @@ export const App = () => {
 					suggestion &&
 					!values.spaces.some((space) => space.key === suggestion.key) && (
 						<div className="row add-row">
-							<button type="button" onClick={() => setAdding({ suggestion })}>
+							<button type="button" onClick={() => openAdd({ suggestion })}>
 								Add {suggestion.key}
 							</button>
 						</div>
 					)}
 				{adding ? (
-					<SpaceForm
-						spaces={values.spaces}
-						suggestion={adding.suggestion}
-						onCancel={closeAdd}
-						onAdd={(space) => {
-							update({ ...values, spaces: [...values.spaces, space] });
-							closeAdd();
-						}}
-					/>
+					<div className="add-item">
+						<div className="row add-heading" id="add-heading">
+							{adding.suggestion ? `Add ${adding.suggestion.key}` : "Add space"}
+						</div>
+						<SpaceForm
+							spaces={values.spaces}
+							suggestion={adding.suggestion}
+							onCancel={closeAdd}
+							onAdd={(space) => {
+								update({ ...values, spaces: [...values.spaces, space] });
+								closeAdd();
+							}}
+						/>
+					</div>
 				) : (
 					<div className="row add-row">
-						<button ref={addButton} type="button" onClick={() => setAdding({})}>
+						<button ref={addButton} type="button" onClick={() => openAdd({})}>
 							Add space
 						</button>
 					</div>
