@@ -3,7 +3,7 @@ import { storage } from "#imports";
 import { BACKLOG_HOST_MATCHES } from "./backlog";
 
 export const SpaceConfigSchema = v.object({
-	key: v.string(),
+	key: v.pipe(v.string(), v.toLowerCase()),
 	apiKey: v.string(),
 	enabled: v.optional(v.boolean(), true),
 });
@@ -49,7 +49,8 @@ export function findSpaceForHost(
 	hostname: string,
 ): SpaceConfig | undefined {
 	return settings.spaces.find(
-		(space) => space.enabled && space.key === hostname.split(".")[0],
+		(space) =>
+			space.enabled && space.key === hostname.split(".")[0]?.toLowerCase(),
 	);
 }
 
@@ -61,8 +62,8 @@ export function effectiveConfigForHost(settings: Settings, hostname: string) {
 }
 
 export function parseSpaceKeyInput(input: string): string | undefined {
-	const value = input.trim();
-	if (/^[a-zA-Z0-9-]+$/.test(value)) return value;
+	const value = input.trim().toLowerCase();
+	if (/^[a-z0-9-]+$/.test(value)) return value;
 	try {
 		const url = new URL(value.includes("://") ? value : `https://${value}`);
 		if (
@@ -78,8 +79,8 @@ export function parseSpaceKeyInput(input: string): string | undefined {
 		const labels = url.hostname.split(".");
 		if (labels.length !== 3 || !domains.includes(labels.slice(1).join(".")))
 			return undefined;
-		const key = value.replace(/^https?:\/\//i, "").split(/[./:?#]/)[0];
-		return /^[a-zA-Z0-9-]+$/.test(key ?? "") ? key : undefined;
+		const [key] = labels;
+		return key && /^[a-z0-9-]+$/.test(key) ? key : undefined;
 	} catch {
 		return undefined;
 	}
