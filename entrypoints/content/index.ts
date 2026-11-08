@@ -1,4 +1,4 @@
-import { Backlog } from "backlog-js";
+import { createClient, getIssueComments } from "backlog-js";
 import { BACKLOG_HOST_MATCHES, issueKeyFromPath } from "@/utils/backlog";
 import {
 	BRIDGE_EVENT,
@@ -25,7 +25,7 @@ const PROBE_WINDOW = 20;
 
 /** 課題 1 件を監視するための文脈。 */
 interface IssueWatchContext {
-	backlog: Backlog;
+	backlog: ReturnType<typeof createClient>;
 	script: HTMLScriptElement;
 	host: string;
 	apiKey: string;
@@ -86,7 +86,7 @@ async function probeAndPatch({
 				? sorted[sorted.length - PROBE_WINDOW - 1]
 				: 0;
 
-		const comments = await backlog.getIssueComments(state.issueId, {
+		const comments = await getIssueComments(backlog, state.issueId, {
 			minId: windowMinId,
 			count: PROBE_WINDOW,
 			order: "asc",
@@ -188,7 +188,7 @@ export default defineContentScript({
 			host: location.hostname,
 		});
 
-		const backlog = new Backlog({
+		const backlog = createClient({
 			host: location.hostname,
 			apiKey: space.apiKey,
 		});

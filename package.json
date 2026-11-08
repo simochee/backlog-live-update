@@ -30,7 +30,7 @@
 		"wxt": "0.21.5"
 	},
 	"dependencies": {
-		"backlog-js": "^0.16.0",
+		"backlog-js": "1.0.2",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
 		"valibot": "^1.5.0"

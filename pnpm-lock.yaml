@@ -179,8 +179,8 @@ importers:
   .:
     dependencies:
       backlog-js:
-        specifier: ^0.16.0
-        version: 0.16.0
+        specifier: 1.0.2
+        version: 1.0.2
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -1800,8 +1800,8 @@ packages:
   atomically@2.1.1:
     resolution: {integrity: sha512-P4w9o2dqARji6P7MHprklbfiArZAWvo07yW7qs3pdljb3BWr12FIB7W+p0zJiuiVsUpRO0iZn1kFFcpPegg0tQ==}
 
-  backlog-js@0.16.0:
-    resolution: {integrity: sha512-4pehmJJ40aHqGMie4hWTAF6U91DurBR20ojiRzukTs6SRXYC5TtDirCs87PDDLn11t6pTOtfvA28tpUmGjd4yg==}
+  backlog-js@1.0.2:
+    resolution: {integrity: sha512-MslCnsnY0gx+kOmwpbxEKEUdbemLoYdXzmJCV3KWDzLG+UrUiGKLuY84DrvD1lAVNUitm9y3kZbYOeRHTZ+rOg==}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -4723,7 +4723,7 @@ snapshots:
       stubborn-fs: 2.0.0
       when-exit: 2.1.5
 
-  backlog-js@0.16.0:
+  backlog-js@1.0.2:
     dependencies:
       qs: 6.17.1
 
