@@ -1,12 +1,16 @@
 import * as v from "valibot";
-import type { PullRequestProbe } from "./bridge-protocol";
+import type { ProbeStar, PullRequestProbe } from "./bridge-protocol";
 
 interface Observable<T> {
 	(): T;
 	(value: T): unknown;
 }
 
-export interface PullRequestComment {
+interface StarTarget {
+	starJsons: Observable<unknown[]>;
+}
+
+export interface PullRequestComment extends StarTarget {
 	id: number;
 	flush: Observable<boolean>;
 	content: string;
@@ -18,7 +22,7 @@ export interface PullRequestComment {
 	filePath?: string | null;
 }
 
-export interface PullRequestStore {
+export interface PullRequestStore extends StarTarget {
 	projectKey: string;
 	repoName: string;
 	number: number;
@@ -46,6 +50,7 @@ export interface PullRequestStore {
 }
 
 const StoreSchema = v.object({
+	starJsons: v.function(),
 	projectKey: v.string(),
 	repoName: v.string(),
 	number: v.number(),
@@ -60,6 +65,7 @@ const StoreSchema = v.object({
 	}),
 });
 const CommentSchema = v.object({
+	starJsons: v.function(),
 	id: v.number(),
 	content: v.string(),
 	updated: v.string(),
@@ -160,6 +166,39 @@ function removeDeletedComments(
 	}
 }
 
+const starIdsOf = (stars: readonly unknown[]) =>
+	stars
+		.map((star) => (star as { id?: unknown }).id)
+		.sort()
+		.join();
+
+// 画面の star は public API の star から組み立てられるので、内部エンドポイントは呼ばない。
+function reflectStarsOf(target: StarTarget, published: readonly ProbeStar[]) {
+	const current = target.starJsons();
+	if (starIdsOf(current) === starIdsOf(published)) return;
+	target.starJsons(
+		published.map(
+			(star) =>
+				current.find((known) => (known as { id?: unknown }).id === star.id) ?? {
+					id: star.id,
+					url: star.url,
+					userId: star.userId,
+					userName: star.userName,
+					userIcon: `UserLargeIcon.action?iconId=${star.userId}`,
+					comment: star.comment,
+				},
+		),
+	);
+}
+
+function reflectStars(store: PullRequestStore, probe: PullRequestProbe): void {
+	reflectStarsOf(store, probe.pullRequest.stars);
+	for (const comment of store.pullRequestCommentArray()) {
+		const published = probe.comments.find((c) => c.id === comment.id);
+		if (published && isIdle(comment)) reflectStarsOf(comment, published.stars);
+	}
+}
+
 function reflectEditedComments(
 	store: PullRequestStore,
 	probe: PullRequestProbe,
@@ -234,6 +273,7 @@ export function syncPullRequest(
 		await appendNewComments(store, probe, isActive);
 		if (!isActive()) return;
 		removeDeletedComments(store, probe);
+		reflectStars(store, probe);
 		await reflectEditedComments(store, probe, isActive);
 	})();
 	running.set(store, task);
