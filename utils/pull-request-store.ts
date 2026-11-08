@@ -373,7 +373,6 @@ async function reflectDetail(
 	store.pullRequest(next.output);
 }
 
-const lastPushedAt = new WeakMap<PullRequestStore, string>();
 const pendingHistory = new WeakSet<PullRequestStore>();
 
 // loadDiff は全ファイルの VM を再作成し、開いている差分やインライン入力を失わせ得るため、
@@ -383,15 +382,7 @@ async function reflectPush(
 	probe: PullRequestProbe,
 	isActive: () => boolean,
 ): Promise<void> {
-	const { pushedAt } = probe;
-	if (pushedAt !== null) {
-		const known = lastPushedAt.get(store);
-		if (known === undefined) lastPushedAt.set(store, pushedAt);
-		else if (Date.parse(pushedAt) > Date.parse(known)) {
-			lastPushedAt.set(store, pushedAt);
-			pendingHistory.add(store);
-		}
-	}
+	if (probe.historyChanged) pendingHistory.add(store);
 	if (!pendingHistory.has(store) || !isActive()) return;
 	await store.initHistory();
 	pendingHistory.delete(store);

@@ -13,7 +13,13 @@ const PR_PATH = "/api/v2/projects/TEST/git/repositories/repo/pullRequests/3";
 const REPO_PATH = "/api/v2/projects/TEST/git/repositories/repo";
 function serve(
 	comments: unknown[],
-	pullRequest: unknown = { updated: "2026-11-08T09:44:08Z", stars: [] },
+	pullRequest: unknown = {
+		updated: "2026-11-08T09:44:08Z",
+		stars: [],
+		repositoryId: 5,
+		branch: "topic",
+		base: "main",
+	},
 	repository: unknown = { pushedAt: "2026-11-08T09:00:00Z" },
 ) {
 	const fn = vi.fn((input: string | URL | Request, _init?: RequestInit) => {
@@ -75,6 +81,9 @@ describe("PR の public API の取得", () => {
 			],
 			{
 				stars: [publicStar(20)],
+				repositoryId: 5,
+				branch: "topic",
+				base: "main",
 				summary: "s",
 				updated: "2026-11-08T09:51:00Z",
 			},
@@ -88,18 +97,25 @@ describe("PR の public API の取得", () => {
 			comment: null,
 		});
 		expect(await fetchPullRequestProbe(client(), ref)).toEqual({
-			comments: [
-				{
-					id: 2,
-					created: "2026-11-08T09:44:09Z",
-					updated: "2026-11-08T09:50:00Z",
-					stars: [star(10)],
-				},
-				{ id: 1, created: STAMP, updated: STAMP, stars: [] },
-			],
-			pullRequest: { updated: "2026-11-08T09:51:00Z", stars: [star(20)] },
-			pushedAt: "2026-11-08T09:30:00Z",
-			complete: true,
+			probe: {
+				comments: [
+					{
+						id: 2,
+						created: "2026-11-08T09:44:09Z",
+						updated: "2026-11-08T09:50:00Z",
+						stars: [star(10)],
+					},
+					{ id: 1, created: STAMP, updated: STAMP, stars: [] },
+				],
+				pullRequest: { updated: "2026-11-08T09:51:00Z", stars: [star(20)] },
+				complete: true,
+			},
+			push: {
+				pushedAt: "2026-11-08T09:30:00Z",
+				repositoryId: 5,
+				branch: "topic",
+				base: "main",
+			},
 		});
 	});
 	it("presenter の無いスターは捨てる", async () => {
@@ -108,7 +124,7 @@ describe("PR の public API の取得", () => {
 			stars: [{ ...publicStar(1), presenter: null }],
 		});
 		expect(
-			(await fetchPullRequestProbe(client(), ref))?.pullRequest.stars,
+			(await fetchPullRequestProbe(client(), ref))?.probe.pullRequest.stars,
 		).toEqual([]);
 	});
 	it("100 件に達したら窓より古いコメントがあり得ると伝える", async () => {
@@ -120,11 +136,15 @@ describe("PR の public API の取得", () => {
 				stars: [],
 			})),
 		);
-		expect((await fetchPullRequestProbe(client(), ref))?.complete).toBe(false);
+		expect((await fetchPullRequestProbe(client(), ref))?.probe.complete).toBe(
+			false,
+		);
 	});
 	it("push 日時を返さないリポジトリは null として扱う", async () => {
 		serve([], undefined, {});
-		expect((await fetchPullRequestProbe(client(), ref))?.pushedAt).toBeNull();
+		expect(
+			(await fetchPullRequestProbe(client(), ref))?.push.pushedAt,
+		).toBeNull();
 	});
 	it("どれかの取得に失敗したら null を返す", async () => {
 		vi.stubGlobal(

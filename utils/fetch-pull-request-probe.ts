@@ -5,6 +5,7 @@ import {
 	getPullRequestComments,
 } from "backlog-js";
 import type { ProbeStar, PullRequestProbe } from "./bridge-protocol";
+import type { PushTarget } from "./detect-pull-request-push";
 
 // public API の count 上限。新着の検知はこの窓の範囲に限る。
 export const PROBE_COMMENT_COUNT = 100;
@@ -40,11 +41,17 @@ function toProbeStars(
 	);
 }
 
+export interface FetchedPullRequestProbe {
+	probe: Omit<PullRequestProbe, "historyChanged">;
+	// リポジトリ全体の最終 push 日時と PR のブランチ。ブランチ単位の先頭コミットは public API に無い。
+	push: PushTarget;
+}
+
 // ページ側の内部エンドポイントを呼ぶかどうかの判断材料を、public API だけで集める。
 export async function fetchPullRequestProbe(
 	backlog: ReturnType<typeof createClient>,
 	{ projectKey, repoName, number }: PullRequestRef,
-): Promise<PullRequestProbe | null> {
+): Promise<FetchedPullRequestProbe | null> {
 	try {
 		const project = encodeURIComponent(projectKey);
 		const repoPath = encodeURIComponent(repoName);
@@ -57,18 +64,25 @@ export async function fetchPullRequestProbe(
 			getGitRepository(backlog, project, repoPath),
 		]);
 		return {
-			comments: comments.map(({ id, created, updated, stars }) => ({
-				id,
-				created,
-				updated,
-				stars: toProbeStars(stars),
-			})),
-			pullRequest: {
-				updated: pullRequest.updated,
-				stars: toProbeStars(pullRequest.stars),
+			probe: {
+				comments: comments.map(({ id, created, updated, stars }) => ({
+					id,
+					created,
+					updated,
+					stars: toProbeStars(stars),
+				})),
+				pullRequest: {
+					updated: pullRequest.updated,
+					stars: toProbeStars(pullRequest.stars),
+				},
+				complete: comments.length < PROBE_COMMENT_COUNT,
 			},
-			pushedAt: repository.pushedAt ?? null,
-			complete: comments.length < PROBE_COMMENT_COUNT,
+			push: {
+				pushedAt: repository.pushedAt ?? null,
+				repositoryId: pullRequest.repositoryId,
+				branch: pullRequest.branch,
+				base: pullRequest.base,
+			},
 		};
 	} catch {
 		return null;
