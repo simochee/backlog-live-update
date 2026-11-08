@@ -1,4 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 import { BACKLOG_HOST_MATCHES } from "./utils/backlog";
 
@@ -7,9 +6,6 @@ export default defineConfig({
 	autoIcons: {
 		baseIconPath: "assets/icon.svg",
 	},
-	vite: () => ({
-		plugins: [tailwindcss()],
-	}),
 	manifest: {
 		name: "Live for Backlog",
 		description: "Keep Backlog alive without reloading.",
