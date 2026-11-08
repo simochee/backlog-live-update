@@ -13,36 +13,70 @@ function observable<T>(initial: T) {
 		return value;
 	});
 }
-function rawComment(id: number, created = "2026-11-08T09:44:08Z") {
-	return { id, created };
+const T0 = "2026-11-08T09:44:08Z";
+const T1 = "2026-11-08T09:50:00Z";
+function rawComment(id: number, created = T0, updated = created) {
+	return {
+		id,
+		created,
+		updated,
+		content: "before",
+		formattedContent: "<p>before</p>",
+		notifyResource: null,
+	};
+}
+function viewModel(raw: ReturnType<typeof rawComment>): PullRequestComment {
+	return {
+		id: raw.id,
+		content: raw.content,
+		updated: raw.updated,
+		flush: observable(false),
+		formattedContent: observable(raw.formattedContent),
+		observableNotifyResource: observable<unknown>(null),
+		mode: observable(1),
+		inProcess: observable(false),
+	};
 }
 function fixture(
 	known: number[] = [],
 	served = [rawComment(1), rawComment(2)],
 ) {
-	const comments: PullRequestComment[] = known.map((id) => ({
-		id,
-		flush: observable(false),
-	}));
+	const comments = known.map((id) => viewModel(rawComment(id)));
 	const getPullRequestComments = vi.fn().mockResolvedValue(served);
+	const getPullRequestComment = vi
+		.fn()
+		.mockImplementation(async (_p, _r, _n, id: number) =>
+			rawComment(id, T0, T1),
+		);
+	const pathMap = new Map<string, PullRequestComment[]>();
 	const store: PullRequestStore = {
 		projectKey: "TEST",
 		repoName: "repo",
 		number: 1,
 		pullRequestCommentArray: Object.assign(() => comments),
-		asPullRequestCommentVM: (value) => ({
-			id: (value as { id: number }).id,
-			flush: observable(false),
-		}),
+		asPullRequestCommentVM: (value) =>
+			viewModel(value as ReturnType<typeof rawComment>),
 		pushComment: (comment) => {
 			comments.push(comment);
 		},
-		pullRequestService: { getPullRequestComments },
+		removeComment: (comment) => {
+			const index = comments.indexOf(comment);
+			if (index >= 0) comments.splice(index, 1);
+		},
+		pullRequestCommentPathMap: { get: (path) => pathMap.get(path) },
+		pullRequestService: { getPullRequestComments, getPullRequestComment },
 	};
-	return { store, comments, getPullRequestComments };
+	return {
+		store,
+		comments,
+		pathMap,
+		getPullRequestComments,
+		getPullRequestComment,
+	};
 }
 const probeOf = (...ids: number[]) => ({
-	comments: ids.map((id) => rawComment(id)),
+	comments: ids.map((id) => ({ id, created: T0, updated: T0 })),
+	complete: true,
 });
 
 describe("PR の新着コメントの同期", () => {
@@ -70,6 +104,7 @@ describe("PR の新着コメントの同期", () => {
 				rawComment(2, "2026-11-08T09:44:08Z"),
 				rawComment(1, "2026-11-08T09:44:07Z"),
 			],
+			complete: true,
 		});
 		expect(getPullRequestComments).toHaveBeenCalledWith(
 			"TEST",
@@ -125,5 +160,134 @@ describe("PR の新着コメントの同期", () => {
 				document.createElement("div"),
 			),
 		).toBe(store);
+	});
+});
+
+describe("PR コメントの編集の同期", () => {
+	const edited = (id: number) => ({
+		comments: [{ id, created: T0, updated: T1 }],
+		complete: true,
+	});
+	it("更新日時が進んだコメントだけ整形済みの本文を取り直して反映する", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1, 2]);
+		await syncPullRequest(store, {
+			comments: [
+				{ id: 1, created: T0, updated: T1 },
+				{ id: 2, created: T0, updated: T0 },
+			],
+			complete: true,
+		});
+		expect(getPullRequestComment).toHaveBeenCalledOnce();
+		expect(getPullRequestComment).toHaveBeenCalledWith("TEST", "repo", 1, 1);
+		expect(comments[0]?.updated).toBe(T1);
+		expect(comments[0]?.formattedContent).toHaveBeenLastCalledWith(
+			"<p>before</p>",
+		);
+		expect(comments[0]?.observableNotifyResource).toHaveBeenCalledWith(null);
+		expect(comments[1]?.formattedContent).not.toHaveBeenCalledWith(
+			expect.anything(),
+		);
+	});
+	it("変化が無ければ内部エンドポイントを呼ばない", async () => {
+		const { store, getPullRequestComment, getPullRequestComments } = fixture([
+			1, 2,
+		]);
+		await syncPullRequest(store, probeOf(1, 2));
+		expect(getPullRequestComment).not.toHaveBeenCalled();
+		expect(getPullRequestComments).not.toHaveBeenCalled();
+	});
+	it("編集中や送信中のコメントは書き換えない", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1, 2]);
+		comments[0]?.mode(2);
+		comments[1]?.inProcess(true);
+		await syncPullRequest(store, {
+			comments: [
+				{ id: 1, created: T0, updated: T1 },
+				{ id: 2, created: T0, updated: T1 },
+			],
+			complete: true,
+		});
+		expect(getPullRequestComment).not.toHaveBeenCalled();
+		expect(comments.map((c) => c.updated)).toEqual([T0, T0]);
+	});
+	it("取得中に編集が始まったコメントは古い取得結果で上書きしない", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1]);
+		getPullRequestComment.mockImplementation(() => {
+			comments[0]?.mode(2);
+			return Promise.resolve(rawComment(1, T0, T1));
+		});
+		await syncPullRequest(store, edited(1));
+		expect(comments[0]?.updated).toBe(T0);
+	});
+	it("取得中に自分の保存が完了したコメントは上書きしない", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1]);
+		getPullRequestComment.mockImplementation(() => {
+			if (comments[0]) comments[0].content = "saved locally";
+			return Promise.resolve(rawComment(1, T0, T1));
+		});
+		await syncPullRequest(store, edited(1));
+		expect(comments[0]?.content).toBe("saved locally");
+	});
+	it("ページの更新日時の方が新しいコメントは取り直さない", async () => {
+		const { store, getPullRequestComment } = fixture([1]);
+		await syncPullRequest(store, {
+			comments: [{ id: 1, created: T0, updated: "2026-11-08T09:00:00Z" }],
+			complete: true,
+		});
+		expect(getPullRequestComment).not.toHaveBeenCalled();
+	});
+	it("不正な応答では反映しない", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1]);
+		getPullRequestComment.mockResolvedValue({ error: true });
+		await syncPullRequest(store, edited(1));
+		expect(comments[0]?.updated).toBe(T0);
+	});
+});
+
+describe("PR コメントの削除の同期", () => {
+	it("窓の範囲内にあるはずなのに public API に無いコメントを取り除く", async () => {
+		const { store, comments, getPullRequestComment } = fixture([1, 2, 3]);
+		await syncPullRequest(store, probeOf(1, 3));
+		expect(comments.map((c) => c.id)).toEqual([1, 3]);
+		expect(getPullRequestComment).not.toHaveBeenCalled();
+	});
+	it("インライン用の登録からも取り除く", async () => {
+		const { store, comments, pathMap } = fixture([1, 2, 3]);
+		const target = comments[1];
+		if (!target) throw new Error("fixture");
+		target.filePath = "src/a.ts";
+		pathMap.set("src/a.ts", [target]);
+		await syncPullRequest(store, probeOf(1, 3));
+		expect(pathMap.get("src/a.ts")).toEqual([]);
+	});
+	it("窓より古いコメントは削除を判断できないので残す", async () => {
+		const { store, comments } = fixture([1, 5, 6, 7, 8]);
+		await syncPullRequest(store, {
+			comments: [6, 8].map((id) => ({ id, created: T0, updated: T0 })),
+			complete: false,
+		});
+		expect(comments.map((c) => c.id)).toEqual([1, 5, 6, 8]);
+	});
+	it("全件を取得できた場合は最も古いコメントの削除も反映する", async () => {
+		const { store, comments } = fixture([1, 2]);
+		await syncPullRequest(store, probeOf(2));
+		expect(comments.map((c) => c.id)).toEqual([2]);
+	});
+	it("取得後に投稿された最新より新しいコメントは削除しない", async () => {
+		const { store, comments } = fixture([1, 2, 9]);
+		await syncPullRequest(store, probeOf(1, 2));
+		expect(comments.map((c) => c.id)).toEqual([1, 2, 9]);
+	});
+	it("編集中や送信中のコメントは削除しない", async () => {
+		const { store, comments } = fixture([1, 2, 3, 4]);
+		comments[1]?.mode(2);
+		comments[2]?.inProcess(true);
+		await syncPullRequest(store, probeOf(1, 4));
+		expect(comments.map((c) => c.id)).toEqual([1, 2, 3, 4]);
+	});
+	it("public API が空のときは何も削除しない", async () => {
+		const { store, comments } = fixture([1, 2]);
+		await syncPullRequest(store, probeOf());
+		expect(comments.map((c) => c.id)).toEqual([1, 2]);
 	});
 });
