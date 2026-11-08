@@ -1,4 +1,9 @@
-import type { PageComment } from "./react-fiber";
+import * as v from "valibot";
+import { type PageComment, PageCommentSchema } from "./react-fiber";
+
+const InternalCommentsSchema = v.object({
+	comments: v.array(PageCommentSchema),
+});
 
 /**
  * Backlog の内部 endpoint `GetInitialComments.action` から、画面 state と同一の
@@ -32,8 +37,6 @@ export async function fetchInternalComments(
 		return null;
 	}
 
-	if (typeof json !== "object" || json === null) return null;
-	const { comments } = json as { comments?: unknown };
-	if (!Array.isArray(comments)) return null;
-	return comments as PageComment[];
+	const result = v.safeParse(InternalCommentsSchema, json);
+	return result.success ? result.output.comments : null;
 }

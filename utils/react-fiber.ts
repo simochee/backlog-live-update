@@ -1,3 +1,5 @@
+import * as v from "valibot";
+
 /**
  * Backlog の課題画面が React 内部で保持する「コメント表示 state」を、外部から
  * fiber tree を辿って参照・更新するためのユーティリティ。
@@ -14,15 +16,8 @@ const REACT_CONTAINER_KEY_PREFIX = "__reactContainer$";
 /** hooks を持つ fiber tag(FunctionComponent / SimpleMemoComponent)。 */
 const FUNCTION_COMPONENT_TAGS = new Set([0, 15]);
 
-/**
- * Backlog 画面 state が保持する comment 1件。実体は内部 endpoint
- * `GetInitialComments.action` のレスポンス要素そのもの(render-ready)。本拡張は
- * dedup に `id` を使うだけで中身は解釈しないため、その他フィールドは不透明とする。
- */
-export interface PageComment {
-	id: number;
-	[key: string]: unknown;
-}
+export const PageCommentSchema = v.looseObject({ id: v.number() });
+export type PageComment = v.InferOutput<typeof PageCommentSchema>;
 
 /** コメント一覧を保持する hook の state 形状。 */
 export interface CommentState {
