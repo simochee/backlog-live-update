@@ -4,7 +4,6 @@ import {
 	revalidateIssueQueries,
 } from "./revalidate-issue-queries";
 
-// 実ページの queryKey 形状(Backlog 課題画面で確認したもの)を基にしたケース。
 const issue = { issueKey: "PLAY_GROUND-47", issueId: 152881077 };
 
 describe("queryKeyMatchesIssue", () => {
@@ -59,7 +58,6 @@ describe("revalidateIssueQueries", () => {
 		const count = revalidateIssueQueries(client, issue);
 
 		expect(count).toBe(3);
-		// N 回ではなく predicate 付き 1 call で TanStack に絞り込ませる。
 		expect(invalidateQueries).toHaveBeenCalledTimes(1);
 		const call = invalidateQueries.mock.calls.at(0);
 		expect(call).toBeDefined();

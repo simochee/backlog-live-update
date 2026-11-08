@@ -80,10 +80,10 @@ describe("pollWhileVisible", () => {
 
 		await vi.advanceTimersByTimeAsync(400);
 		setVisibility("hidden");
-		await vi.advanceTimersByTimeAsync(300); // 経過 700ms < 1000
+		await vi.advanceTimersByTimeAsync(300);
 		expect(callback).not.toHaveBeenCalled();
 
-		setVisibility("visible"); // 残り 300ms
+		setVisibility("visible");
 		await vi.advanceTimersByTimeAsync(299);
 		expect(callback).not.toHaveBeenCalled();
 		await vi.advanceTimersByTimeAsync(1);
@@ -97,7 +97,7 @@ describe("pollWhileVisible", () => {
 		const stop = pollWhileVisible(callback, 1000);
 
 		setVisibility("hidden");
-		await vi.advanceTimersByTimeAsync(2000); // 経過 2000ms >= 1000
+		await vi.advanceTimersByTimeAsync(2000);
 		expect(callback).not.toHaveBeenCalled();
 
 		setVisibility("visible");
@@ -117,14 +117,14 @@ describe("pollWhileVisible", () => {
 		);
 		const stop = pollWhileVisible(callback, 1000);
 
-		await vi.advanceTimersByTimeAsync(1000); // 1回目発火、pending
+		await vi.advanceTimersByTimeAsync(1000);
 		expect(callback).toHaveBeenCalledTimes(1);
 
-		await vi.advanceTimersByTimeAsync(1000); // 実行中は次が来ない
+		await vi.advanceTimersByTimeAsync(1000);
 		expect(callback).toHaveBeenCalledTimes(1);
 
 		resolve();
-		await Promise.resolve(); // 完了を反映、ここを起点に再計測
+		await Promise.resolve();
 		await vi.advanceTimersByTimeAsync(999);
 		expect(callback).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);

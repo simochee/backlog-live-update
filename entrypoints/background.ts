@@ -1,12 +1,3 @@
-/**
- * live polling が動いている tab にだけ action icon の badge を出す。
- *
- * content script が `pollWhileVisible` 起動直後と pagehide 時に `live-state`
- * message を送ってくる。送信元 tab id を `browser.action.setBadgeText` の
- * `tabId` に渡し tab スコープで badge を切り替える(tab を閉じれば browser
- * 側で自動 GC される)。
- */
-
 import { debugLog } from "@/utils/debug-log";
 import { isLiveStateMessage } from "@/utils/live-state-message";
 
