@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 export function ApiKeyField({
 	value,
@@ -7,13 +7,14 @@ export function ApiKeyField({
 	value: string;
 	onChange: (value: string) => void;
 }) {
+	const id = useId();
 	const [visible, setVisible] = useState(false);
 	return (
 		<div className="field">
-			<label htmlFor="api-key">API Key</label>
+			<label htmlFor={id}>API Key</label>
 			<div className="secret-field">
 				<input
-					id="api-key"
+					id={id}
 					type={visible ? "text" : "password"}
 					autoComplete="off"
 					data-1p-ignore
@@ -25,7 +26,7 @@ export function ApiKeyField({
 				/>
 				<button
 					type="button"
-					aria-controls="api-key"
+					aria-controls={id}
 					aria-label="Show API Key"
 					aria-pressed={visible}
 					onClick={() => setVisible(!visible)}

@@ -39,7 +39,9 @@ async function renderApp() {
 }
 
 function input(id: string): HTMLInputElement {
-	const element = container.querySelector(`#${id}`);
+	const element = container.querySelector(
+		id === "api-key" ? ".secret-field input" : `#${id}`,
+	);
 	if (!(element instanceof HTMLInputElement))
 		throw new Error(`Missing input ${id}`);
 	return element;
@@ -159,6 +161,9 @@ it("URL 入力から新しいスペースを追加し既存設定を保つ", asy
 	await click("Add space");
 	expect(button("Add").disabled).toBe(true);
 	await changeText("space-key", "https://nulab.backlog.jp/view/ABC-1");
+	expect(container.querySelector("a")?.href).toBe(
+		"https://nulab.backlog.jp/EditApiSettings.action",
+	);
 	await changeText("api-key", "new-secret");
 	expect(await stored()).toEqual(saved);
 	await click("Add");
@@ -169,7 +174,8 @@ it("URL 入力から新しいスペースを追加し既存設定を保つ", asy
 			{ key: "nulab", apiKey: "new-secret", enabled: true },
 		],
 	});
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	expect(container.querySelector("form")).toBeNull();
+	expect(document.activeElement).toBe(button("Add space"));
 });
 it("既存キーと外部 URL では追加できない", async () => {
 	await renderApp();
@@ -191,19 +197,20 @@ it("追加をキャンセルすると入力を保存しない", async () => {
 	expect(await stored()).toEqual(saved);
 	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
 });
-it("詳細のキーは編集できず API キーと有効状態を自動保存する", async () => {
+it("展開した行の API キーを自動保存し同じ行で有効状態を切り替える", async () => {
 	await renderApp();
 	await openSpace("example");
-	expect(container.querySelector("h1")?.textContent).toBe("example");
+	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
 	expect(container.querySelector("#space-key")).toBeNull();
 	expect(input("api-key").value).toBe("secret");
 	await changeText("api-key", "new-secret");
-	await act(() => input("live-updates").click());
+	await act(() =>
+		container.querySelector<HTMLInputElement>('[role="switch"]')?.click(),
+	);
 	expect(await stored()).toEqual({
 		...saved,
 		spaces: [{ key: "example", apiKey: "new-secret", enabled: false }],
 	});
-	await click("Back");
 	expect(container.textContent).toContain("Paused");
 });
 it("API キーの表示切り替えは保存せずパスワードマネージャーから除外する", async () => {
@@ -216,7 +223,9 @@ it("API キーの表示切り替えは保存せずパスワードマネージャ
 	await click("Show API Key");
 	expect(input("api-key").type).toBe("text");
 	expect(button("Show API Key").getAttribute("aria-pressed")).toBe("true");
-	expect(button("Show API Key").getAttribute("aria-controls")).toBe("api-key");
+	expect(button("Show API Key").getAttribute("aria-controls")).toBe(
+		input("api-key").id,
+	);
 	await click("Show API Key");
 	expect(input("api-key").type).toBe("password");
 	expect(await stored()).toEqual(saved);
@@ -230,11 +239,11 @@ it("削除を確認してからスペースだけを削除し一覧へ戻る", a
 	});
 	await renderApp();
 	await openSpace("example");
-	await click("Remove space");
+	await click("Remove");
 	expect(container.textContent).toContain("Remove example?");
 	await click("Cancel");
 	expect((await stored()).spaces).toHaveLength(2);
-	await click("Remove space");
+	await click("Remove");
 	await click("Remove");
 	expect(await stored()).toEqual({
 		...saved,
@@ -249,6 +258,7 @@ it("クリック元のスペースを session storage から提案し API 設定
 	await renderApp();
 	await click("Add nulab");
 	expect(input("space-key").value).toBe("nulab");
+	expect(container.textContent).not.toContain("Add nulab");
 	expect(container.querySelector("a")?.href).toBe(
 		"https://nulab.backlog.jp/EditApiSettings.action",
 	);
@@ -321,30 +331,69 @@ it("スペース行のアクセシブルな名前はキーと状態の表示を�
 	expect(row.textContent).toContain("example");
 	expect(row.textContent).toContain("Enabled");
 });
-it("追加画面へ移動すると見出しにフォーカスし戻ると追加ボタンに戻す", async () => {
+it("追加フォームはキー入力にフォーカスしキャンセル後は追加ボタンを復元する", async () => {
 	await renderApp();
-	button("Add space").focus();
 	await click("Add space");
-	expect(document.activeElement).toBe(container.querySelector("h1"));
-	expect(container.querySelector("h1")?.tabIndex).toBe(-1);
+	expect(document.activeElement).toBe(input("space-key"));
+	expect(container.textContent).toContain("Preferences");
+	expect(
+		[...container.querySelectorAll("button")].some(
+			(entry) => entry.textContent === "Add space",
+		),
+	).toBe(false);
+	await changeText("space-key", "draft");
 	await click("Cancel");
+	expect(container.querySelector("form")).toBeNull();
+	expect(document.activeElement).toBe(button("Add space"));
+	expect(await stored()).toEqual(saved);
+	await click("Add space");
+	expect(input("space-key").value).toBe("");
+});
+it("行を再クリックすると閉じ別の行を開くと元の編集欄は閉じる", async () => {
+	await fakeBrowser.storage.local.set({
+		settings: {
+			...saved,
+			spaces: [...saved.spaces, { key: "other", apiKey: "", enabled: true }],
+		},
+	});
+	await renderApp();
+	const row = spaceButton("example");
+	expect(row.getAttribute("aria-expanded")).toBe("false");
+	await openSpace("example");
+	expect(row.getAttribute("aria-expanded")).toBe("true");
+	expect(
+		document.getElementById(row.getAttribute("aria-controls") ?? "")?.hidden,
+	).toBe(false);
+	await openSpace("example");
+	expect(row.getAttribute("aria-expanded")).toBe("false");
+	expect(container.querySelector(".secret-field")).toBeNull();
+	await openSpace("example");
+	await openSpace("other");
+	expect(row.getAttribute("aria-expanded")).toBe("false");
+	expect(spaceButton("other").getAttribute("aria-expanded")).toBe("true");
+});
+it("削除後は追加ボタンへフォーカスを移す", async () => {
+	await renderApp();
+	await openSpace("example");
+	await click("Remove");
+	await click("Remove");
 	expect(document.activeElement).toBe(button("Add space"));
 });
-it("詳細から戻ると状態を変更した元のスペース行にフォーカスする", async () => {
-	await renderApp();
-	spaceButton("example").focus();
-	await openSpace("example");
-	expect(document.activeElement).toBe(container.querySelector("h1"));
-	await act(() => input("live-updates").click());
-	await click("Back");
-	expect(document.activeElement).toBe(spaceButton("example"));
-	expect(spaceButton("example").textContent).toContain("Paused");
-});
-it("削除して元の行がなくなったら一覧の見出しにフォーカスする", async () => {
+it("編集欄と追加フォームを同時に開いても API キーのラベルはそれぞれの入力を指す", async () => {
 	await renderApp();
 	await openSpace("example");
-	await click("Remove space");
-	await click("Remove");
-	expect(document.activeElement).toBe(container.querySelector("h1"));
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	await click("Add space");
+	const fields = [
+		...container.querySelectorAll<HTMLInputElement>(".secret-field input"),
+	];
+	expect(fields).toHaveLength(2);
+	expect(fields[0]?.id).not.toBe(fields[1]?.id);
+	for (const field of fields) {
+		expect(
+			container.querySelector(`label[for="${field.id}"]`)?.textContent,
+		).toBe("API Key");
+		expect(
+			container.querySelector(`button[aria-controls="${field.id}"]`),
+		).not.toBeNull();
+	}
 });
