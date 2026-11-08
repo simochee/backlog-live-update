@@ -15,8 +15,7 @@ const BADGE_TEXT = " ";
 const BADGE_BACKGROUND_COLOR = "#f42858";
 
 export default defineBackground(() => {
-	// MV3(chrome)は `browser.action`、MV2(firefox)は `browser.browserAction`。
-	const action = browser.action ?? browser.browserAction;
+	const action = browser.action;
 	debugLog("background boot", { hasAction: action != null });
 	if (action == null) return;
 
