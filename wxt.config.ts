@@ -15,7 +15,7 @@ export default defineConfig({
 			? {
 					browser_specific_settings: {
 						gecko: {
-							id: "live-for-backlog@simochee",
+							id: "live-for-backlog@simochee.net",
 							strict_min_version: "140.0",
 							data_collection_permissions: {
 								required: ["authenticationInfo", "browsingActivity"],
