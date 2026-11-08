@@ -97,7 +97,7 @@ async function stored() {
 
 it("スペース一覧と間隔の選択肢を表示する", async () => {
 	await renderApp();
-	expect(container.textContent).toContain("Live for Backlog");
+	expect(container.textContent).toContain("Backlog Live Update");
 	expect(container.textContent).toContain("example");
 	expect(container.textContent).toContain("Enabled");
 	expect(container.querySelector<HTMLSelectElement>("#interval")?.value).toBe(
@@ -153,7 +153,9 @@ it("一覧のスイッチは詳細を開かず有効状態を保存する", asyn
 		...saved,
 		spaces: [{ ...saved.spaces[0], enabled: false }],
 	});
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	expect(container.querySelector("h1")?.textContent).toBe(
+		"Backlog Live Update",
+	);
 	expect(container.textContent).toContain("Paused");
 });
 it("URL 入力から新しいスペースを追加し既存設定を保つ", async () => {
@@ -195,12 +197,16 @@ it("追加をキャンセルすると入力を保存しない", async () => {
 	await changeText("space-key", "draft");
 	await click("Cancel");
 	expect(await stored()).toEqual(saved);
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	expect(container.querySelector("h1")?.textContent).toBe(
+		"Backlog Live Update",
+	);
 });
 it("展開した行の API キーを自動保存し同じ行で有効状態を切り替える", async () => {
 	await renderApp();
 	await openSpace("example");
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	expect(container.querySelector("h1")?.textContent).toBe(
+		"Backlog Live Update",
+	);
 	expect(container.querySelector("#space-key")).toBeNull();
 	expect(input("api-key").value).toBe("secret");
 	await changeText("api-key", "new-secret");
@@ -249,7 +255,9 @@ it("削除を確認してからスペースだけを削除し一覧へ戻る", a
 		...saved,
 		spaces: [{ key: "other", apiKey: "", enabled: true }],
 	});
-	expect(container.querySelector("h1")?.textContent).toBe("Live for Backlog");
+	expect(container.querySelector("h1")?.textContent).toBe(
+		"Backlog Live Update",
+	);
 });
 it("クリック元のスペースを session storage から提案し API 設定を新しいタブで開く", async () => {
 	await fakeBrowser.storage.session.set({

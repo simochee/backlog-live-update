@@ -8,10 +8,11 @@ export default defineConfig({
 		baseIconPath: "assets/icon.svg",
 	},
 	manifest: ({ browser }) => ({
-		name: "Live for Backlog",
-		description: "Keep Backlog alive without reloading.",
+		name: "Backlog Live Update",
+		description:
+			"Updates open Backlog issues and pull requests without reloading.",
 		permissions: ["storage", "activeTab"],
-		action: { default_title: "Live for Backlog" },
+		action: { default_title: "Backlog Live Update" },
 		...(browser === "firefox"
 			? {
 					browser_specific_settings: {
@@ -19,7 +20,7 @@ export default defineConfig({
 							strict_min_version: "142.0",
 						},
 						gecko: {
-							id: "live-for-backlog@simochee.net",
+							id: "backlog-live-update@simochee.net",
 							strict_min_version: "140.0",
 							data_collection_permissions: {
 								required: ["authenticationInfo", "browsingActivity"],
