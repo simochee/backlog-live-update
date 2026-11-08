@@ -77,3 +77,22 @@ describe("buildStarMapPatch", () => {
 		expect(patch.byCommentId["100"][0].id).toBe(1);
 	});
 });
+
+it("parse を経ない不正な id が targetIds にあっても数字以外の key を作らない", () => {
+	const objectPrototype = Object.entries(
+		Object.getOwnPropertyDescriptors(Object.prototype),
+	);
+	const comments = JSON.parse(
+		'[{"id":"__proto__","stars":[]},{"id":"constructor","stars":[]},{"id":"prototype","stars":[]},{"id":-1,"stars":[]},{"id":1.5,"stars":[]},{"id":100,"stars":[]}]',
+	);
+	const patch = buildStarMapPatch(
+		comments,
+		new Set(["__proto__", "constructor", "prototype", "-1", "1.5", "100"]),
+	);
+	expect(Object.keys(patch.byCommentId)).toStrictEqual(["100"]);
+	expect(patch.byCommentId["100"]).toStrictEqual([]);
+	expect(Object.getPrototypeOf(patch.byCommentId)).toBe(Object.prototype);
+	expect(
+		Object.entries(Object.getOwnPropertyDescriptors(Object.prototype)),
+	).toStrictEqual(objectPrototype);
+});
