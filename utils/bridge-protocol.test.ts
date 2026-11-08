@@ -170,3 +170,93 @@ describe("parseIssueRef", () => {
 		expect(parseIssueRef(detail)).toBeNull();
 	});
 });
+
+describe("bridge payload の部分的な不正", () => {
+	it("不正な optional field だけを省き、有効な field と false を保持する", () => {
+		const result = parseStateResponse(
+			JSON.stringify({
+				found: false,
+				issueId: "bad",
+				minId: 0,
+				recentIds: null,
+				extra: true,
+			}),
+		);
+		expect(result).toStrictEqual({ found: false, minId: 0 });
+		expect(result).not.toHaveProperty("issueId");
+		expect(result).not.toHaveProperty("recentIds");
+	});
+
+	it("不正な found は他の field が有効でも全体を found:false にする", () => {
+		expect(
+			parseStateResponse(JSON.stringify({ found: 1, issueId: 42 })),
+		).toStrictEqual({ found: false });
+	});
+
+	it("非配列の star entry を省き、不正要素だけの配列は空で保持する", () => {
+		expect(
+			parseStarMapPatch(
+				JSON.stringify({
+					byCommentId: {
+						bad: null,
+						invalid: [null, { id: 1 }],
+						empty: [],
+					},
+				}),
+			),
+		).toStrictEqual({ byCommentId: { invalid: [], empty: [] } });
+	});
+
+	it("star map の配列コンテナも数値キーの map として扱う", () => {
+		expect(
+			parseStarMapPatch(JSON.stringify({ byCommentId: [[], null] })),
+		).toStrictEqual({ byCommentId: { "0": [] } });
+	});
+
+	it("通知がすべて不正でも comment patch を空通知で保持し、非配列の通知は patch ごと捨てる", () => {
+		expect(
+			parseCommentMetaPatchList(
+				JSON.stringify([
+					{
+						commentId: 1,
+						notifications: [null, {}, { id: 1, alreadyRead: 0 }],
+					},
+					{ commentId: 2, notifications: null },
+				]),
+			),
+		).toStrictEqual([{ commentId: 1, notifications: [] }]);
+	});
+
+	it("許可した field 以外を patch と issue 参照に持ち込まない", () => {
+		expect(
+			parseIssueRef(
+				JSON.stringify({ issueKey: "P-1", issueId: 1, extra: true }),
+			),
+		).toStrictEqual({ issueKey: "P-1", issueId: 1 });
+		expect(
+			parseCommentMetaPatchList(
+				JSON.stringify([
+					{
+						commentId: 1,
+						extra: true,
+						notifications: [{ id: 2, alreadyRead: false, extra: true }],
+					},
+				]),
+			),
+		).toStrictEqual([
+			{ commentId: 1, notifications: [{ id: 2, alreadyRead: false }] },
+		]);
+	});
+
+	it("壊れた JSON の star patch は null", () => {
+		expect(parseStarMapPatch("{bad")).toBeNull();
+	});
+});
+
+it("star map の constructor と prototype も既存の comment key として保持する", () => {
+	expect(
+		parseStarMapPatch(
+			JSON.stringify({ byCommentId: { constructor: [], prototype: [] } }),
+		),
+	).toStrictEqual({ byCommentId: { constructor: [], prototype: [] } });
+});
