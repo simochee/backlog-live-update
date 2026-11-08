@@ -17,6 +17,7 @@ import { fetchInternalComments } from "@/utils/fetch-internal-comments";
 import { highlightComments } from "@/utils/highlight-comments";
 import {
 	findPullRequestStore,
+	isPullRequestDetailBusy,
 	syncPullRequest,
 } from "@/utils/pull-request-store";
 import {
@@ -58,6 +59,11 @@ export default defineUnlistedScript(() => {
 					store,
 					probe,
 					() => watchedPageKeyFromPath(location.pathname) === pageKey,
+					() =>
+						isPullRequestDetailBusy(
+							(window as unknown as { ko?: unknown }).ko,
+							document.getElementById("comments"),
+						),
 				);
 			} catch (err) {
 				debugLog("bridge: pull request sync failed", err);

@@ -10,12 +10,20 @@ afterEach(() => {
 
 const ref = { projectKey: "TEST", repoName: "repo", number: 3 };
 const PR_PATH = "/api/v2/projects/TEST/git/repositories/repo/pullRequests/3";
-function serve(comments: unknown[], pullRequest: unknown = { stars: [] }) {
+const REPO_PATH = "/api/v2/projects/TEST/git/repositories/repo";
+function serve(
+	comments: unknown[],
+	pullRequest: unknown = { updated: "2026-11-08T09:44:08Z", stars: [] },
+	repository: unknown = { pushedAt: "2026-11-08T09:00:00Z" },
+) {
 	const fn = vi.fn((input: string | URL | Request, _init?: RequestInit) => {
 		const { pathname } = new URL(String(input));
-		return Promise.resolve(
-			jsonResponse(pathname === `${PR_PATH}/comments` ? comments : pullRequest),
-		);
+		const body = {
+			[`${PR_PATH}/comments`]: comments,
+			[PR_PATH]: pullRequest,
+			[REPO_PATH]: repository,
+		}[pathname];
+		return Promise.resolve(jsonResponse(body));
 	});
 	vi.stubGlobal("fetch", fn);
 	return fn;
@@ -38,11 +46,12 @@ const publicStar = (id: number) => ({
 });
 
 describe("PR の public API の取得", () => {
-	it("PR 本体と直近 100 件のコメントだけを API キーを URL に載せず取得する", async () => {
+	it("PR 本体とコメントとリポジトリの 3 件だけを API キーを URL に載せず取得する", async () => {
 		const fn = serve([]);
 		await fetchPullRequestProbe(client(), ref);
 		const requests = fn.mock.calls.map(([url]) => String(url)).sort();
 		expect(requests).toEqual([
+			`https://example.backlog.com${REPO_PATH}`,
 			`https://example.backlog.com${PR_PATH}`,
 			`https://example.backlog.com${PR_PATH}/comments?count=100&order=desc`,
 		]);
@@ -64,7 +73,12 @@ describe("PR の public API の取得", () => {
 				},
 				{ id: 1, created: STAMP, updated: STAMP, content: "y", stars: [] },
 			],
-			{ stars: [publicStar(20)], summary: "s" },
+			{
+				stars: [publicStar(20)],
+				summary: "s",
+				updated: "2026-11-08T09:51:00Z",
+			},
+			{ pushedAt: "2026-11-08T09:30:00Z", name: "repo" },
 		);
 		const star = (id: number) => ({
 			id,
@@ -83,15 +97,19 @@ describe("PR の public API の取得", () => {
 				},
 				{ id: 1, created: STAMP, updated: STAMP, stars: [] },
 			],
-			pullRequest: { stars: [star(20)] },
+			pullRequest: { updated: "2026-11-08T09:51:00Z", stars: [star(20)] },
+			pushedAt: "2026-11-08T09:30:00Z",
 			complete: true,
 		});
 	});
 	it("presenter の無いスターは捨てる", async () => {
-		serve([], { stars: [{ ...publicStar(1), presenter: null }] });
-		expect((await fetchPullRequestProbe(client(), ref))?.pullRequest).toEqual({
-			stars: [],
+		serve([], {
+			updated: STAMP,
+			stars: [{ ...publicStar(1), presenter: null }],
 		});
+		expect(
+			(await fetchPullRequestProbe(client(), ref))?.pullRequest.stars,
+		).toEqual([]);
 	});
 	it("100 件に達したら窓より古いコメントがあり得ると伝える", async () => {
 		serve(
@@ -104,12 +122,16 @@ describe("PR の public API の取得", () => {
 		);
 		expect((await fetchPullRequestProbe(client(), ref))?.complete).toBe(false);
 	});
-	it("どちらかの取得に失敗したら null を返す", async () => {
+	it("push 日時を返さないリポジトリは null として扱う", async () => {
+		serve([], undefined, {});
+		expect((await fetchPullRequestProbe(client(), ref))?.pushedAt).toBeNull();
+	});
+	it("どれかの取得に失敗したら null を返す", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn((input: string | URL | Request) =>
 				Promise.resolve(
-					String(input).includes("/comments")
+					String(input).includes("/comments") || String(input).endsWith("/repo")
 						? jsonResponse([])
 						: jsonResponse({}, false),
 				),

@@ -1,5 +1,6 @@
 import {
 	type createClient,
+	getGitRepository,
 	getPullRequest,
 	getPullRequestComments,
 } from "backlog-js";
@@ -46,13 +47,14 @@ export async function fetchPullRequestProbe(
 ): Promise<PullRequestProbe | null> {
 	try {
 		const project = encodeURIComponent(projectKey);
-		const repository = encodeURIComponent(repoName);
-		const [comments, pullRequest] = await Promise.all([
-			getPullRequestComments(backlog, project, repository, number, {
+		const repoPath = encodeURIComponent(repoName);
+		const [comments, pullRequest, repository] = await Promise.all([
+			getPullRequestComments(backlog, project, repoPath, number, {
 				count: PROBE_COMMENT_COUNT,
 				order: "desc",
 			}),
-			getPullRequest(backlog, project, repository, number),
+			getPullRequest(backlog, project, repoPath, number),
+			getGitRepository(backlog, project, repoPath),
 		]);
 		return {
 			comments: comments.map(({ id, created, updated, stars }) => ({
@@ -61,7 +63,11 @@ export async function fetchPullRequestProbe(
 				updated,
 				stars: toProbeStars(stars),
 			})),
-			pullRequest: { stars: toProbeStars(pullRequest.stars) },
+			pullRequest: {
+				updated: pullRequest.updated,
+				stars: toProbeStars(pullRequest.stars),
+			},
+			pushedAt: repository.pushedAt ?? null,
 			complete: comments.length < PROBE_COMMENT_COUNT,
 		};
 	} catch {

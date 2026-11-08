@@ -99,7 +99,12 @@ export const PullRequestProbeSchema = v.object({
 			stars: v.array(ProbeStarSchema),
 		}),
 	),
-	pullRequest: v.object({ stars: v.array(ProbeStarSchema) }),
+	pullRequest: v.object({
+		updated: v.string(),
+		stars: v.array(ProbeStarSchema),
+	}),
+	// リポジトリ全体の最終 push 日時。ブランチ単位の先頭コミットは public API に無い。
+	pushedAt: v.nullable(v.string()),
 	// false のときは直近の窓だけで、窓より古いコメントの有無は分からない。
 	complete: v.boolean(),
 });

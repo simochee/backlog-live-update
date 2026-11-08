@@ -15,6 +15,24 @@ function observable<T>(initial: T) {
 }
 const T0 = "2026-11-08T09:44:08Z";
 const T1 = "2026-11-08T09:50:00Z";
+function rawDetail(updated = T0, summary = "summary") {
+	return {
+		updated,
+		number: 1,
+		summary,
+		description: "description",
+		formattedDescription: "<p>description</p>",
+		status: { id: 1, name: "Open" },
+		localized: { created: "2026/11/08" },
+		createdUser: { id: 1 },
+		attachments: [],
+		base: "main",
+		branch: "topic",
+		assigner: null,
+		issue: null,
+		deleteBranchWithMerge: false,
+	};
+}
 function rawComment(id: number, created = T0, updated = created) {
 	return {
 		id,
@@ -49,9 +67,13 @@ function fixture(
 		.mockImplementation(async (_p, _r, _n, id: number) =>
 			rawComment(id, T0, T1),
 		);
+	const getPullRequest = vi.fn().mockResolvedValue(rawDetail(T1, "renamed"));
+	const initHistory = vi.fn().mockResolvedValue(undefined);
 	const pathMap = new Map<string, PullRequestComment[]>();
 	const store: PullRequestStore = {
 		starJsons: observable<unknown[]>([]),
+		pullRequest: observable<unknown>(rawDetail()),
+		initHistory,
 		projectKey: "TEST",
 		repoName: "repo",
 		number: 1,
@@ -66,7 +88,11 @@ function fixture(
 			if (index >= 0) comments.splice(index, 1);
 		},
 		pullRequestCommentPathMap: { get: (path) => pathMap.get(path) },
-		pullRequestService: { getPullRequestComments, getPullRequestComment },
+		pullRequestService: {
+			getPullRequestComments,
+			getPullRequestComment,
+			getPullRequest,
+		},
 	};
 	return {
 		store,
@@ -74,11 +100,23 @@ function fixture(
 		pathMap,
 		getPullRequestComments,
 		getPullRequestComment,
+		getPullRequest,
+		initHistory,
 	};
+}
+// 内部エンドポイントとして呼ばれうるページ側の関数を、変化が無い tick で集計する。
+function internalCalls(f: ReturnType<typeof fixture>) {
+	return [
+		f.getPullRequestComments,
+		f.getPullRequestComment,
+		f.getPullRequest,
+		f.initHistory,
+	].reduce((sum, fn) => sum + fn.mock.calls.length, 0);
 }
 const probeOf = (...ids: number[]) => ({
 	comments: ids.map((id) => ({ id, created: T0, updated: T0, stars: [] })),
-	pullRequest: { stars: [] },
+	pullRequest: { updated: T0, stars: [] },
+	pushedAt: null,
 	complete: true,
 });
 
@@ -107,7 +145,8 @@ describe("PR の新着コメントの同期", () => {
 				{ id: 2, created: "2026-11-08T09:44:08Z", updated: T0, stars: [] },
 				{ id: 1, created: "2026-11-08T09:44:07Z", updated: T0, stars: [] },
 			],
-			pullRequest: { stars: [] },
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: null,
 			complete: true,
 		});
 		expect(getPullRequestComments).toHaveBeenCalledWith(
@@ -170,7 +209,8 @@ describe("PR の新着コメントの同期", () => {
 describe("PR コメントの編集の同期", () => {
 	const edited = (id: number) => ({
 		comments: [{ id, created: T0, updated: T1, stars: [] }],
-		pullRequest: { stars: [] },
+		pullRequest: { updated: T0, stars: [] },
+		pushedAt: null,
 		complete: true,
 	});
 	it("更新日時が進んだコメントだけ整形済みの本文を取り直して反映する", async () => {
@@ -180,7 +220,8 @@ describe("PR コメントの編集の同期", () => {
 				{ id: 1, created: T0, updated: T1, stars: [] },
 				{ id: 2, created: T0, updated: T0, stars: [] },
 			],
-			pullRequest: { stars: [] },
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: null,
 			complete: true,
 		});
 		expect(getPullRequestComment).toHaveBeenCalledOnce();
@@ -211,7 +252,8 @@ describe("PR コメントの編集の同期", () => {
 				{ id: 1, created: T0, updated: T1, stars: [] },
 				{ id: 2, created: T0, updated: T1, stars: [] },
 			],
-			pullRequest: { stars: [] },
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: null,
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -241,7 +283,8 @@ describe("PR コメントの編集の同期", () => {
 			comments: [
 				{ id: 1, created: T0, updated: "2026-11-08T09:00:00Z", stars: [] },
 			],
-			pullRequest: { stars: [] },
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: null,
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -279,7 +322,8 @@ describe("PR コメントの削除の同期", () => {
 				updated: T0,
 				stars: [],
 			})),
-			pullRequest: { stars: [] },
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: null,
 			complete: false,
 		});
 		expect(comments.map((c) => c.id)).toEqual([1, 5, 6, 8]);
@@ -326,7 +370,8 @@ describe("PR 本文とコメントのスターの同期", () => {
 			updated: T0,
 			stars,
 		})),
-		pullRequest: { stars: pullRequest },
+		pullRequest: { updated: T0, stars: pullRequest },
+		pushedAt: null,
 		complete: true,
 	});
 	it("public API のスターから画面の形を組み立てて内部エンドポイントを呼ばずに反映する", async () => {
@@ -386,5 +431,144 @@ describe("PR 本文とコメントのスターの同期", () => {
 		comments[1]?.inProcess(true);
 		await syncPullRequest(store, withStars({ 1: [star(10)], 2: [star(11)] }));
 		expect(comments.map((c) => c.starJsons())).toEqual([[], []]);
+	});
+});
+
+describe("PR 本体の同期", () => {
+	const updated = (at: string, pushedAt: string | null = null) => ({
+		...probeOf(),
+		pullRequest: { updated: at, stars: [] },
+		pushedAt,
+	});
+	it("public API の更新日時が進んだときだけ本体を取り直して反映する", async () => {
+		const { store, getPullRequest } = fixture();
+		await syncPullRequest(store, updated(T0), undefined, () => false);
+		expect(getPullRequest).not.toHaveBeenCalled();
+		await syncPullRequest(store, updated(T1), undefined, () => false);
+		expect(getPullRequest).toHaveBeenCalledWith("TEST", "repo", 1);
+		expect(store.pullRequest()).toMatchObject({
+			summary: "renamed",
+			updated: T1,
+		});
+	});
+	it("詳細エディタやフォームの操作中は本体を取り直さない", async () => {
+		const { store, getPullRequest } = fixture();
+		await syncPullRequest(store, updated(T1), undefined, () => true);
+		expect(getPullRequest).not.toHaveBeenCalled();
+		expect(store.pullRequest()).toMatchObject({ summary: "summary" });
+	});
+	it("取得中に自分の編集が保存された本体は古い取得結果で上書きしない", async () => {
+		const { store, getPullRequest } = fixture();
+		getPullRequest.mockImplementation(() => {
+			store.pullRequest(rawDetail("2026-11-08T09:55:00Z", "saved locally"));
+			return Promise.resolve(rawDetail(T1, "renamed"));
+		});
+		await syncPullRequest(store, updated(T1), undefined, () => false);
+		expect(store.pullRequest()).toMatchObject({ summary: "saved locally" });
+	});
+	it("遷移後や不正な応答では本体を書き換えない", async () => {
+		const { store, getPullRequest } = fixture();
+		await syncPullRequest(
+			store,
+			updated(T1),
+			() => false,
+			() => false,
+		);
+		expect(getPullRequest).not.toHaveBeenCalled();
+		getPullRequest.mockResolvedValue({ error: true });
+		await syncPullRequest(store, updated(T1), undefined, () => false);
+		expect(store.pullRequest()).toMatchObject({ summary: "summary" });
+	});
+	it("本体が未取得のページでは何もしない", async () => {
+		const { store, getPullRequest } = fixture();
+		store.pullRequest({});
+		await syncPullRequest(store, updated(T1), undefined, () => false);
+		expect(getPullRequest).not.toHaveBeenCalled();
+	});
+});
+
+describe("push によるコミット履歴の同期", () => {
+	const pushed = (pushedAt: string | null) => ({
+		...probeOf(),
+		pullRequest: { updated: T0, stars: [] },
+		pushedAt,
+	});
+	it("初回は基準として記録するだけで履歴を読み直さない", async () => {
+		const { store, initHistory } = fixture();
+		await syncPullRequest(store, pushed(T0));
+		expect(initHistory).not.toHaveBeenCalled();
+	});
+	it("最終 push 日時が進んだときだけ履歴を読み直す", async () => {
+		const { store, initHistory } = fixture();
+		await syncPullRequest(store, pushed(T0));
+		await syncPullRequest(store, pushed(T0));
+		expect(initHistory).not.toHaveBeenCalled();
+		await syncPullRequest(store, pushed(T1));
+		expect(initHistory).toHaveBeenCalledOnce();
+		await syncPullRequest(store, pushed(T1));
+		expect(initHistory).toHaveBeenCalledOnce();
+	});
+	it("日時を得られない tick では履歴を読み直さない", async () => {
+		const { store, initHistory } = fixture();
+		await syncPullRequest(store, pushed(T0));
+		await syncPullRequest(store, pushed(null));
+		expect(initHistory).not.toHaveBeenCalled();
+	});
+	it("履歴の取得に失敗したら次の同期で再試行する", async () => {
+		const { store, initHistory } = fixture();
+		await syncPullRequest(store, pushed(T0));
+		initHistory.mockRejectedValueOnce(new Error("network"));
+		await expect(syncPullRequest(store, pushed(T1))).rejects.toThrow();
+		await syncPullRequest(store, pushed(T1));
+		expect(initHistory).toHaveBeenCalledTimes(2);
+	});
+	it("詳細エディタの操作中でも履歴は更新する", async () => {
+		const { store, initHistory } = fixture();
+		await syncPullRequest(store, pushed(T0), undefined, () => true);
+		await syncPullRequest(store, pushed(T1), undefined, () => true);
+		expect(initHistory).toHaveBeenCalledOnce();
+	});
+});
+
+describe("内部エンドポイントの呼び出し", () => {
+	it("public API に変化が無い tick ではページ側の関数を一切呼ばない", async () => {
+		const f = fixture([1, 2]);
+		const steady = {
+			comments: [1, 2].map((id) => ({
+				id,
+				created: T0,
+				updated: T0,
+				stars: [],
+			})),
+			pullRequest: { updated: T0, stars: [] },
+			pushedAt: T0,
+			complete: true,
+		};
+		await syncPullRequest(f.store, steady, undefined, () => false);
+		await syncPullRequest(f.store, steady, undefined, () => false);
+		expect(internalCalls(f)).toBe(0);
+	});
+});
+
+describe("PR 本体の取得結果", () => {
+	it("状態と担当者などを持つ本体を同じ更新として反映する", async () => {
+		const { store, getPullRequest } = fixture();
+		getPullRequest.mockResolvedValue({
+			...rawDetail(T1),
+			status: { id: 4, name: "Merged" },
+			assigner: { id: 9 },
+			issue: { id: 3 },
+		});
+		await syncPullRequest(
+			store,
+			{ ...probeOf(), pullRequest: { updated: T1, stars: [] }, pushedAt: null },
+			undefined,
+			() => false,
+		);
+		expect(store.pullRequest()).toMatchObject({
+			status: { name: "Merged" },
+			assigner: { id: 9 },
+			issue: { id: 3 },
+		});
 	});
 });
