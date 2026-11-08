@@ -192,7 +192,7 @@ export const App = () => {
 					<label className="row-text" htmlFor="interval">
 						<span>Polling interval</span>
 						<span id="interval-help" className="description">
-							How often open issues are checked
+							How often open issues and pull requests are checked
 						</span>
 					</label>
 					<select
