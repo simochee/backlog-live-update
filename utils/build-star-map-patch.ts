@@ -1,4 +1,5 @@
 import type { StarMapPatch } from "./bridge-protocol";
+import { isCommentIdKey } from "./comment-id";
 
 /**
  * public API `/api/v2/issues/:key/comments` のレスポンスから本拡張が触る最小 shape。
@@ -42,7 +43,7 @@ export function buildStarMapPatch(
 	const byCommentId: StarMapPatch["byCommentId"] = {};
 	for (const c of comments) {
 		const cid = String(c.id);
-		if (!targetIds.has(cid)) continue;
+		if (!isCommentIdKey(cid) || !targetIds.has(cid)) continue;
 		const stars = Array.isArray(c.stars) ? c.stars : [];
 		const cleaned: StarMapPatch["byCommentId"][string] = [];
 		for (const s of stars) {

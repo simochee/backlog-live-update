@@ -74,3 +74,42 @@ describe("applyStarMapPatch", () => {
 		expect(r.next["100"][0].userName).toBe("New");
 	});
 });
+
+it("parse を経ない patch でも数字以外の key を無視して plain object を保つ", () => {
+	const objectPrototype = Object.entries(
+		Object.getOwnPropertyDescriptors(Object.prototype),
+	);
+	const current: CommentStarMap = { "100": [star(1)] };
+	const patch = {
+		byCommentId: Object.fromEntries([
+			["__proto__", [star(2)]],
+			["constructor", [star(2)]],
+			["prototype", [star(2)]],
+			["-1", [star(2)]],
+			["1.5", [star(2)]],
+			["x", [star(2)]],
+			["200", [star(3)]],
+		]),
+	};
+	const result = applyStarMapPatch(current, patch);
+	expect(result.changed).toBe(true);
+	expect(Object.keys(result.next)).toStrictEqual(["100", "200"]);
+	expect(result.next["100"]).toBe(current["100"]);
+	expect(result.next["200"]).toStrictEqual([star(3)]);
+	expect(Object.getPrototypeOf(result.next)).toBe(Object.prototype);
+	expect(
+		Object.entries(Object.getOwnPropertyDescriptors(Object.prototype)),
+	).toStrictEqual(objectPrototype);
+});
+
+it("数字以外の key だけの patch は state を変更しない", () => {
+	const current: CommentStarMap = { "100": [star(1)] };
+	const result = applyStarMapPatch(current, {
+		byCommentId: Object.fromEntries([
+			["__proto__", [star(2)]],
+			["constructor", []],
+		]),
+	});
+	expect(result).toStrictEqual({ next: current, changed: false });
+	expect(result.next).toBe(current);
+});
