@@ -54,7 +54,7 @@ section + section {
 }
 .space-item,
 .add-row,
-.add-form,
+.add-item,
 .interval-row {
 	border-top: 1px solid var(--border);
 }
@@ -207,11 +207,12 @@ select:focus-visible {
 }
 .space-editor,
 .add-form {
-	margin-left: 48px;
-	margin-right: 24px;
+	margin: 0 24px 16px 40px;
+	padding-left: 16px;
+	border-left: 2px solid var(--border);
 }
-.space-editor {
-	border-top: 1px solid var(--border);
+.add-form {
+	padding-top: 4px;
 }
 .form-card {
 	padding: 16px 0;

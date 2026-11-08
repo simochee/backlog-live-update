@@ -258,7 +258,17 @@ it("クリック元のスペースを session storage から提案し API 設定
 	await renderApp();
 	await click("Add nulab");
 	expect(input("space-key").value).toBe("nulab");
-	expect(container.textContent).not.toContain("Add nulab");
+	expect(
+		[...container.querySelectorAll("button")].some(
+			(element) => element.textContent === "Add nulab",
+		),
+	).toBe(false);
+	expect(container.querySelector("form")?.getAttribute("aria-labelledby")).toBe(
+		"add-heading",
+	);
+	expect(container.querySelector("#add-heading")?.textContent).toBe(
+		"Add nulab",
+	);
 	expect(container.querySelector("a")?.href).toBe(
 		"https://nulab.backlog.jp/EditApiSettings.action",
 	);
@@ -379,10 +389,19 @@ it("削除後は追加ボタンへフォーカスを移す", async () => {
 	await click("Remove");
 	expect(document.activeElement).toBe(button("Add space"));
 });
-it("編集欄と追加フォームを同時に開いても API キーのラベルはそれぞれの入力を指す", async () => {
+it("追加フォームを開くと展開中のスペースの編集欄は閉じる", async () => {
 	await renderApp();
 	await openSpace("example");
 	await click("Add space");
+	expect(container.querySelectorAll(".secret-field input")).toHaveLength(1);
+	expect(container.querySelector("#add-heading")?.textContent).toBe(
+		"Add space",
+	);
+});
+it("編集欄と追加フォームを同時に開いても API キーのラベルはそれぞれの入力を指す", async () => {
+	await renderApp();
+	await click("Add space");
+	await openSpace("example");
 	const fields = [
 		...container.querySelectorAll<HTMLInputElement>(".secret-field input"),
 	];
