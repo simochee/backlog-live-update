@@ -117,6 +117,21 @@ button.primary {
 	padding: 0 24px 0 0;
 	gap: 8px;
 }
+.space-row:has(.space-link:hover),
+.space-row .space-link:hover {
+	background: var(--highlight);
+}
+.expand-icon {
+	margin-left: auto;
+	flex: none;
+	fill: none;
+	stroke: var(--muted);
+	stroke-width: 2;
+	transition: transform 0.15s;
+}
+.space-link[aria-expanded="true"] .expand-icon {
+	transform: rotate(180deg);
+}
 .space-link {
 	display: flex;
 	align-items: center;

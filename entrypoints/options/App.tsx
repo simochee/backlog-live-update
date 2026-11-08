@@ -103,6 +103,15 @@ export const App = () => {
 												: "Enabled"}
 									</span>
 								</span>
+								<svg
+									className="expand-icon"
+									viewBox="0 0 24 24"
+									width="20"
+									height="20"
+									aria-hidden="true"
+								>
+									<path d="M7 10l5 5 5-5" />
+								</svg>
 							</button>
 							<input
 								className="switch"
