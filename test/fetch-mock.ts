@@ -7,15 +7,17 @@ export function mockFetch(impl: () => Response | Promise<Response>) {
 			input: string | URL | Request,
 			init?: RequestInit,
 		) => Response | Promise<Response>
-	>(() => impl());
+	>(async () => impl());
 	vi.stubGlobal("fetch", fn);
 	return fn;
 }
 
 /** `ok` と `json()` だけを備えた最小の Response ライク。 */
 export function jsonResponse(body: unknown, ok = true): Response {
-	return new Response(JSON.stringify(body), {
+	return {
+		ok,
 		status: ok ? 200 : 500,
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: new Headers({ "Content-Type": "application/json" }),
+		json: () => Promise.resolve(body),
+	} as unknown as Response;
 }
