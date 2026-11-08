@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { buildCommentMetaPatches } from "./build-comment-meta-patches";
 
 describe("buildCommentMetaPatches", () => {
-	it("targetIds に含まれる comment のみ patch にする(値は resourceAlreadyRead から取る)", () => {
+	it("表示中のコメントだけに実閲覧の既読状態を反映する", () => {
 		const patches = buildCommentMetaPatches(
 			[
 				{ id: 1, notifications: [{ id: 10, resourceAlreadyRead: false }] },

@@ -58,7 +58,7 @@ describe("parseSettings", () => {
 });
 
 describe("migrateSettingsV1ToV2", () => {
-	it("spaces[0] を space へ移す", () => {
+	it("旧形式の先頭 Space 設定を引き継ぐ", () => {
 		expect(
 			migrateSettingsV1ToV2({
 				interval: 60,
@@ -99,7 +99,7 @@ describe("migrateSettingsV1ToV2", () => {
 });
 
 describe("migrateSettingsV2ToV3", () => {
-	it("space.id を space.key へ rename する", () => {
+	it("旧形式の Space ID を Space Key として引き継ぐ", () => {
 		expect(
 			migrateSettingsV2ToV3({
 				interval: 60,

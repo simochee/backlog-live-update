@@ -6,7 +6,7 @@ afterEach(() => {
 });
 
 describe("highlightComments", () => {
-	it("新規 comment id ごとに更新ハイライト rule を追記する", () => {
+	it("指定したコメントが更新色でハイライトされる", () => {
 		highlightComments([1, 2]);
 
 		const style = document.getElementById("lfb-comment-highlight");
@@ -19,7 +19,7 @@ describe("highlightComments", () => {
 		);
 	});
 
-	it("既存 style 要素へ追記し、重複生成しない", () => {
+	it("後から指定したコメントも同じ stylesheet でハイライトされる", () => {
 		highlightComments([1]);
 		highlightComments([2]);
 
