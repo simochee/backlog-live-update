@@ -39,7 +39,6 @@ function toProbeStars(
 	);
 }
 
-// ページ側の内部エンドポイントを呼ぶかどうかの判断材料を、public API だけで集める。
 export async function fetchPullRequestProbe(
 	backlog: ReturnType<typeof createClient>,
 	{ projectKey, repoName, number }: PullRequestRef,

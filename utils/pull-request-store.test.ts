@@ -101,8 +101,7 @@ function fixture(
 		getPullRequest,
 	};
 }
-// 内部エンドポイントとして呼ばれうるページ側の関数を、変化が無い tick で集計する。
-function internalCalls(f: ReturnType<typeof fixture>) {
+function countInternalEndpointCalls(f: ReturnType<typeof fixture>) {
 	return [
 		f.getPullRequestComments,
 		f.getPullRequestComment,
@@ -504,7 +503,7 @@ describe("内部エンドポイントの呼び出し", () => {
 		};
 		await syncPullRequest(f.store, steady, undefined, () => false);
 		await syncPullRequest(f.store, steady, undefined, () => false);
-		expect(internalCalls(f)).toBe(0);
+		expect(countInternalEndpointCalls(f)).toBe(0);
 	});
 });
 
