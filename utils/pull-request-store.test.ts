@@ -514,4 +514,20 @@ describe("PR 本体の取得結果", () => {
 			issue: { id: 3 },
 		});
 	});
+	it("検証に使わない項目も取得したまま本体に反映する", async () => {
+		const { store, getPullRequest } = fixture();
+		const fetched = {
+			...rawDetail(T1),
+			status: { id: 4, name: "Merged", color: "#a1a1a1" },
+			mergeAt: T1,
+		};
+		getPullRequest.mockResolvedValue(fetched);
+		await syncPullRequest(
+			store,
+			{ ...probeOf(), pullRequest: { updated: T1, stars: [] } },
+			undefined,
+			() => false,
+		);
+		expect(store.pullRequest()).toEqual(fetched);
+	});
 });
