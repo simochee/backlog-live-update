@@ -41,7 +41,7 @@ describe("queryKeyMatchesIssue", () => {
 });
 
 describe("revalidateIssueQueries", () => {
-	it("当該課題を参照する query を predicate で一括 invalidate し件数を返す", () => {
+	it("当該課題の query だけを再検証の対象にし、対象件数を返す", () => {
 		const invalidateQueries = vi.fn();
 		const all = [
 			{ queryKey: ["issues", "PLAY_GROUND-47"] },

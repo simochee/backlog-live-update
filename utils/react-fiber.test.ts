@@ -251,14 +251,14 @@ describe("findQueryClient", () => {
 		invalidateQueries: vi.fn(),
 	});
 
-	it("memoizedProps.client が getQueryCache を持つ fiber から QueryClient を返す", () => {
+	it("ページの Provider が保持する QueryClient を取得できる", () => {
 		const qc = queryClient();
 		const provider = fiber(0, { memoizedProps: { client: qc } });
 		mountRoot(fiber(3, { child: provider }));
 		expect(findQueryClient()).toBe(qc);
 	});
 
-	it("memoizedProps.value 経由(Context.Provider)でも検出する", () => {
+	it("Context.Provider が保持する QueryClient も取得できる", () => {
 		const qc = queryClient();
 		const provider = fiber(0, { memoizedProps: { value: qc } });
 		mountRoot(fiber(3, { child: provider }));

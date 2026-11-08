@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { buildStarMapPatch } from "./build-star-map-patch";
 
 describe("buildStarMapPatch", () => {
-	it("public API stars を fiber 形(presenter → userId/userName/userIcon)へ map する", () => {
+	it("コメントのスターに画面表示用のユーザー情報とアイコンが含まれる", () => {
 		const patch = buildStarMapPatch(
 			[
 				{
