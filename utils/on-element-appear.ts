@@ -4,7 +4,7 @@ export function onElementAppear(
 	selector: string,
 	callback: (element: HTMLElement) => void,
 ): () => void {
-	const animationName = `lfb-appear-${++counter}`;
+	const animationName = `blu-appear-${++counter}`;
 
 	const style = document.createElement("style");
 	style.textContent = `

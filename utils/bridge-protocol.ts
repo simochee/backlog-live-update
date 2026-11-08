@@ -4,14 +4,14 @@ import { isCommentIdKey } from "./comment-id";
 // CustomEvent の detail はオブジェクトのままだと world 境界で失われ得るため、
 // isolated world と MAIN world の間では JSON 文字列で授受する。
 export const BRIDGE_EVENT = {
-	requestState: "lfb:request-state",
-	syncPullRequest: "lfb:sync-pull-request",
-	pullRequestSynced: "lfb:pull-request-synced",
-	state: "lfb:state",
-	fetchAppend: "lfb:fetch-append",
-	revalidateIssue: "lfb:revalidate-issue",
-	patchCommentMeta: "lfb:patch-comment-meta",
-	patchStarMap: "lfb:patch-star-map",
+	requestState: "blu:request-state",
+	syncPullRequest: "blu:sync-pull-request",
+	pullRequestSynced: "blu:pull-request-synced",
+	state: "blu:state",
+	fetchAppend: "blu:fetch-append",
+	revalidateIssue: "blu:revalidate-issue",
+	patchCommentMeta: "blu:patch-comment-meta",
+	patchStarMap: "blu:patch-star-map",
 } as const;
 
 function validItems<TSchema extends v.GenericSchema>(schema: TSchema) {
