@@ -296,8 +296,12 @@ describe("parsePullRequestProbe", () => {
 					id: 1,
 					created: "2026-11-08T09:44:08Z",
 					updated: "2026-11-08T09:44:08Z",
+					stars: [
+						{ id: 5, url: "u", userId: 7, userName: "Alice", comment: null },
+					],
 				},
 			],
+			pullRequest: { stars: [] },
 			complete: true,
 		};
 		expect(parsePullRequestProbe(JSON.stringify(probe))).toEqual(probe);
