@@ -180,6 +180,21 @@ describe("PR の新着コメントの同期", () => {
 		await syncPullRequest(store, probeOf(1));
 		expect(comments).toEqual([]);
 	});
+	it("新着の取得に失敗しても、同じ回の削除と本体の反映は続ける", async () => {
+		const { store, comments, getPullRequestComments, getPullRequest } = fixture(
+			[1, 2, 3],
+		);
+		getPullRequestComments.mockRejectedValue(new Error("network"));
+		await syncPullRequest(
+			store,
+			{ ...probeOf(1, 3, 4), pullRequest: { updated: T1, stars: [] } },
+			undefined,
+			() => false,
+		);
+		expect(comments.map((c) => c.id)).toEqual([1, 3]);
+		expect(getPullRequest).toHaveBeenCalledOnce();
+		expect(store.pullRequest()).toMatchObject({ summary: "renamed" });
+	});
 	it("必要な store が見つからなければ何もしない", () => {
 		expect(
 			findPullRequestStore({}, document.createElement("div")),
