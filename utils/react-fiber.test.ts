@@ -45,7 +45,6 @@ const sampleState = (): CommentState => ({
 	comments: [],
 });
 
-/** document.body 配下に React root を模した container を設置する。 */
 function mountRoot(root: Fiber) {
 	const container = document.createElement("div");
 	(container as unknown as Record<string, unknown>).__reactContainer$test = {
@@ -99,7 +98,6 @@ describe("findRootFiber", () => {
 
 describe("walkFibers", () => {
 	it("child を sibling より先に辿る pre-order DFS で列挙する", () => {
-		// root -> child A -> (A child A1), A sibling B
 		const a1 = fiber(11);
 		const b = fiber(20);
 		const a = fiber(10, { child: a1, sibling: b });
@@ -167,7 +165,6 @@ describe("findCommentStateHook", () => {
 			memoizedState: sampleState(),
 			queue: { dispatch: vi.fn() },
 		});
-		// tag 1 (ClassComponent) は対象外
 		mountRoot(fiber(3, { child: fiber(1, { memoizedState: target }) }));
 
 		expect(findCommentStateHook()).toBeNull();

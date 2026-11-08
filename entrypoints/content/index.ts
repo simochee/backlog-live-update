@@ -15,16 +15,11 @@ import { onElementAppear } from "@/utils/on-element-appear";
 import { pollWhileVisible } from "@/utils/poll-while-visible";
 import { parseSettings, settingsStorage } from "@/utils/settings";
 
-/** bridge へ state を要求してから応答を諦めるまでの猶予。 */
 const BRIDGE_STATE_TIMEOUT_MS = 3000;
 
-/**
- * probe で取得する直近 comment 件数。画面末尾 N 件分の通知既読等メタ差分を 1 call で拾うための窓。
- * 大きいほど巻き戻り耐性が上がるが public API の payload も比例増 → 実用バランスで 20。
- */
+// 全履歴を毎回取得すると payload が増えるため、直近のメタ変更を拾う窓を 20 件に絞る。
 const PROBE_WINDOW = 20;
 
-/** 課題 1 件を監視するための文脈。 */
 interface IssueWatchContext {
 	backlog: ReturnType<typeof createClient>;
 	script: HTMLScriptElement;
@@ -34,7 +29,6 @@ interface IssueWatchContext {
 	isActive: () => boolean;
 }
 
-/** bridge へ現在の state を要求し、応答(または timeout)を待つ。 */
 function requestBridgeState(script: HTMLScriptElement): Promise<StateResponse> {
 	return new Promise((resolve) => {
 		const onState = (event: Event) => {
@@ -58,16 +52,6 @@ function requestBridgeState(script: HTMLScriptElement): Promise<StateResponse> {
 	});
 }
 
-/**
- * comment probe: bridge から現在 state を取り、画面末尾 N 件分の window で public API を 1 call。
- * 役割は 2 つ:
- *
- * - **新規検知**: 取得した最大 id が現末尾より大きければ「新規あり」→ bridge に
- *   `fetchAppend`(内部 API で render-ready 取得 → append)を依頼する。
- * - **メタ patch**: 既存 comment の `notifications`(既読フラグ等)に差分があれば、
- *   `patchCommentMeta` で fiber 上の該当 field のみを直接書き換えさせる。content/changeLog
- *   等は public API と内部 state で shape が異なる(HTML 整形済か否か)ため触らない。
- */
 async function probeAndPatch({
 	backlog,
 	script,
@@ -80,8 +64,6 @@ async function probeAndPatch({
 		const recentIds = state.recentIds ?? [];
 		const sorted = [...recentIds].sort((a, b) => a - b);
 		const tail = sorted.at(-1) ?? 0;
-		// 画面末尾 N 件分を含む window を取りたいので、N+1 件目の id を minId(exclusive)に渡す。
-		// それ未満しか持っていなければ 0 から全件。
 		const windowMinId =
 			sorted.length > PROBE_WINDOW
 				? sorted[sorted.length - PROBE_WINDOW - 1]
@@ -99,7 +81,6 @@ async function probeAndPatch({
 			script.dispatchEvent(new CustomEvent(BRIDGE_EVENT.fetchAppend));
 		}
 
-		// 既存 id についてのみ meta を patch(新規分は fetchAppend が render-ready で持ち込む)。
 		const knownIds = new Set(sorted);
 		const patches = buildCommentMetaPatches(comments, knownIds);
 		if (patches.length > 0) {
@@ -110,7 +91,6 @@ async function probeAndPatch({
 			);
 		}
 
-		// 既存 id について star もまとめて patch(starMap key は string)。
 		const knownIdStrs = new Set(sorted.map((n) => String(n)));
 		const starPatch = buildStarMapPatch(comments, knownIdStrs);
 		if (Object.keys(starPatch.byCommentId).length > 0) {
@@ -120,22 +100,13 @@ async function probeAndPatch({
 				}),
 			);
 		}
-	} catch {
-		// comment probe 失敗(network / rate limit 等)。issue 監視は続行する。
-	}
+	} catch {}
 }
 
-/**
- * 課題 1 件分の監視 callback を生成する。`lastUpdated` を closure に保持し、生成時に baseline
- * を即 fetch する(起動〜初回 tick の間に起きた変化も初回 tick で拾えるようにするため)。
- * 返す callback は poll tick ごとに comment probe と issue-updated probe を実行する。
- */
 function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 	const { script, host, apiKey, issueKey } = ctx;
 	let lastUpdated: string | undefined;
 
-	// 課題詳細の updated 監視。backlog-js の getIssue は HTTP cache で stale 化し updated が
-	// 進まないため、no-store で叩く fetchIssueMeta を使う(失敗時は null を返す)。
 	const probeIssueUpdated = async () => {
 		const issue = await fetchIssueMeta(host, apiKey, issueKey);
 		if (!ctx.isActive()) return;
@@ -148,7 +119,6 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 			debugLog("issue baseline recorded", { issueKey, updated: issue.updated });
 			return;
 		}
-		// updated は ISO 8601 文字列。辞書順比較で時刻の前後が判定できる。
 		if (issue.updated > lastUpdated) {
 			const from = lastUpdated;
 			lastUpdated = issue.updated;
@@ -165,7 +135,7 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 		}
 	};
 
-	void probeIssueUpdated(); // 起動時点の updated を即 baseline 化する。
+	void probeIssueUpdated();
 
 	return async () => {
 		if (!ctx.isActive()) return;
@@ -208,7 +178,8 @@ export default defineContentScript({
 			const version = generation;
 			const { interval, space } = parseSettings(raw);
 			if (ctx.isInvalid || !space.key || space.key !== currentSpaceKey) return;
-			// fiber 操作は MAIN world でしか動かないため bridge を注入する。
+
+			// fiber 操作は MAIN world でしか動かないため、bridge を注入する。
 			bridge ??= injectScript("/comment-bridge.js", { keepInDom: true });
 			const { script } = await bridge;
 			if (ctx.isInvalid || version !== generation) return;

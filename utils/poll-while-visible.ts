@@ -1,22 +1,3 @@
-/**
- * promise を返すコールバックの「完了時刻」を起点に、interval(ミリ秒)ごとに
- * コールバックを実行する polling ユーティリティ。
- *
- * タブ非表示(`document.visibilityState !== "visible"`)の間はタイマーを停止し、
- * 表示へ復帰した時点で前回完了からの経過時間を評価する。実時間ベースで判定するため、
- * 経過が interval 以上なら即時実行、未満なら残り時間だけ待機してから実行する。
- *
- * コールバック実行中(promise pending)は次回をスケジュールせず、完了を待って
- * 再スケジュールするため二重実行は起きない。コールバックが reject してもループは
- * 継続する(エラー処理はコールバック側の責務)。
- *
- * 制約: window フォーカスは判定対象外。別アプリへフォーカスが移ってもタブが表示
- * されていれば継続する。起動時は即時実行せず、最初の実行は interval 経過後となる。
- *
- * @param callback interval ごとに実行する処理。完了(resolve/reject)を起点に次回を計測する
- * @param interval 前回完了から次回実行までの待機時間(ミリ秒)
- * @returns polling を停止するクリーンアップ関数
- */
 export function pollWhileVisible(
 	callback: () => void | Promise<void>,
 	interval: number,

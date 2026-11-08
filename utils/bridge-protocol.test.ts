@@ -69,14 +69,14 @@ describe("parseCommentMetaPatchList", () => {
 
 	it("壊れた要素は捨てて残りを返す", () => {
 		const detail = JSON.stringify([
-			{ commentId: "not number", notifications: [] }, // 捨てる
+			{ commentId: "not number", notifications: [] },
 			{
 				commentId: 5,
 				notifications: [
-					{ id: 1, alreadyRead: true }, // 残す
-					{ id: "x", alreadyRead: true }, // 捨てる(id 不正)
-					{ id: 2 }, // 捨てる(alreadyRead 欠損)
-					"junk", // 捨てる(object でない)
+					{ id: 1, alreadyRead: true },
+					{ id: "x", alreadyRead: true },
+					{ id: 2 },
+					"junk",
 				],
 			},
 		]);
@@ -132,8 +132,8 @@ describe("parseStarMapPatch", () => {
 			byCommentId: {
 				"100": [
 					{ id: 1, url: "u", userId: 2, userName: "A", userIcon: "ic" },
-					{ id: "x", url: "u", userId: 2, userName: "A", userIcon: "ic" }, // id 非 number
-					{ id: 3, url: 7, userId: 2, userName: "A", userIcon: "ic" }, // url 非 string
+					{ id: "x", url: "u", userId: 2, userName: "A", userIcon: "ic" },
+					{ id: 3, url: 7, userId: 2, userName: "A", userIcon: "ic" },
 					"junk",
 				],
 			},

@@ -12,16 +12,6 @@ function isNotifyResource(value: unknown): value is NotifyResource {
 	return v.is(NotifyResourceSchema, value);
 }
 
-/**
- * 現 state と patch 配列から「次 state」と「実際に変化があったか」を返す。
- *
- * - 変化判定は alreadyRead の値比較のみ(false→true / true→false の双方向)。Backlog 側で
- *   既読化が起きると false → true、未読化(通常は起きないが念のため)なら true → false。
- * - 変化が無ければ呼び出し側で `dispatch` を呼ばず無駄 render を避けるため、`changed: false`
- *   を返す。
- * - public API レスポンスに含まれない comment(画面外の旧 comment)や、対応する
- *   notificationId が fiber 側に無い場合は触らない(部分更新)。
- */
 export function applyCommentMetaPatch(
 	state: CommentState,
 	patches: readonly CommentMetaPatch[],
