@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseSpaceKeyInput, type SpaceConfig } from "@/utils/settings";
-import type { SuggestedSpace } from "@/utils/suggested-space";
+import {
+	parseSuggestedSpace,
+	type SuggestedSpace,
+} from "@/utils/suggested-space";
 import { ApiKeyField } from "./ApiKeyField";
 
 export function SpaceForm({
@@ -14,13 +17,21 @@ export function SpaceForm({
 	onAdd: (space: SpaceConfig) => void;
 	onCancel: () => void;
 }) {
+	const keyInput = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		keyInput.current?.focus();
+	}, []);
 	const [input, setInput] = useState(suggestion?.key ?? "");
 	const [apiKey, setApiKey] = useState("");
 	const key = parseSpaceKeyInput(input);
+	const knownSpace =
+		parseSuggestedSpace(input.includes("://") ? input : `https://${input}`) ??
+		(key === suggestion?.key ? suggestion : null);
 	const duplicate = spaces.some((space) => space.key === key);
 	return (
 		<form
-			className="card add-form"
+			className="add-form"
+			aria-label="Add space"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (key && !duplicate) onAdd({ key, apiKey, enabled: true });
@@ -30,6 +41,7 @@ export function SpaceForm({
 				<label htmlFor="space-key">Space Key</label>
 				<input
 					id="space-key"
+					ref={keyInput}
 					autoComplete="off"
 					spellCheck={false}
 					autoCapitalize="none"
@@ -49,10 +61,10 @@ export function SpaceForm({
 			</div>
 			<div>
 				<ApiKeyField value={apiKey} onChange={setApiKey} />
-				{suggestion && key === suggestion.key && (
+				{knownSpace && (
 					<a
 						className="description api-help"
-						href={`${suggestion.origin}/EditApiSettings.action`}
+						href={`${knownSpace.origin}/EditApiSettings.action`}
 						target="_blank"
 						rel="noreferrer"
 					>
@@ -83,21 +95,7 @@ export function SpaceDetail({
 }) {
 	const [confirming, setConfirming] = useState(false);
 	return (
-		<div className="card row-card">
-			<label className="row" htmlFor="live-updates">
-				<span>Live updates</span>
-				<input
-					id="live-updates"
-					className="switch"
-					type="checkbox"
-					role="switch"
-					aria-checked={space.enabled}
-					checked={space.enabled}
-					onChange={(event) =>
-						onChange({ ...space, enabled: event.target.checked })
-					}
-				/>
-			</label>
+		<div className="space-editor">
 			<div className="form-card">
 				<ApiKeyField
 					value={space.apiKey}
@@ -119,11 +117,11 @@ export function SpaceDetail({
 					</>
 				) : (
 					<button
-						className="danger row row-button"
+						className="danger"
 						type="button"
 						onClick={() => setConfirming(true)}
 					>
-						Remove space
+						Remove
 					</button>
 				)}
 			</div>
