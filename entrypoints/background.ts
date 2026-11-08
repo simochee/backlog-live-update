@@ -8,21 +8,11 @@
  */
 
 import { debugLog } from "@/utils/debug-log";
+import { isLiveStateMessage } from "@/utils/live-state-message";
 
 // 空白文字 + 赤背景。空文字だと badge 自体が描画されないため text は " " 固定。
 const BADGE_TEXT = " ";
 const BADGE_BACKGROUND_COLOR = "#f42858";
-
-interface LiveStateMessage {
-	type: "live-state";
-	active: boolean;
-}
-
-function isLiveStateMessage(value: unknown): value is LiveStateMessage {
-	if (value === null || typeof value !== "object") return false;
-	const record = value as Record<string, unknown>;
-	return record.type === "live-state" && typeof record.active === "boolean";
-}
 
 export default defineBackground(() => {
 	// MV3(chrome)は `browser.action`、MV2(firefox)は `browser.browserAction`。
