@@ -1,5 +1,6 @@
 import { createClient, getIssue } from "backlog-js";
 import * as v from "valibot";
+import { fetchWithoutCache } from "./fetch-without-cache";
 
 const IssueMetaSchema = v.object({ id: v.number(), updated: v.string() });
 export type IssueMeta = v.InferOutput<typeof IssueMetaSchema>;
@@ -14,8 +15,7 @@ export async function fetchIssueMeta(
 		const client = createClient({
 			host,
 			apiKey,
-			// HTTP cache の古い応答では updated が進まないため、既定の fetch は使わない。
-			fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+			fetch: fetchWithoutCache,
 		});
 		json = await getIssue(client, encodeURIComponent(issueIdOrKey));
 	} catch {
