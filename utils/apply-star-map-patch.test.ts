@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { applyStarMapPatch } from "./apply-star-map-patch";
 import type { CommentStarItem, CommentStarMap } from "./react-fiber";
 
@@ -71,7 +71,8 @@ describe("applyStarMapPatch", () => {
 			byCommentId: { "100": [star(1, 1, "New")] },
 		});
 		expect(r.changed).toBe(true);
-		expect(r.next["100"][0].userName).toBe("New");
+		expect(r.next["100"]?.at(0)).toBeDefined();
+		expect(r.next["100"]?.at(0)?.userName).toBe("New");
 	});
 });
 

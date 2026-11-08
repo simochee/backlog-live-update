@@ -10,11 +10,12 @@
 		"zip": "wxt zip",
 		"zip:firefox": "wxt zip -b firefox",
 		"compile": "wxt prepare && tsc --noEmit",
-		"test": "vitest",
-		"postinstall": "wxt prepare && lefthook install"
+		"test": "vp test",
+		"postinstall": "wxt prepare && vp config --no-agent",
+		"lint:firefox": "web-ext lint -s .output/firefox-mv3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.15",
+		"@biomejs/biome": "2.4.15",
 		"@commitlint/cli": "^21.0.1",
 		"@commitlint/config-conventional": "^21.0.1",
 		"@types/react": "^19.2.15",
@@ -22,15 +23,17 @@
 		"@wxt-dev/auto-icons": "^1.1.1",
 		"@wxt-dev/module-react": "^1.2.2",
 		"happy-dom": "^20.9.0",
-		"lefthook": "^2.1.8",
 		"typescript": "^6.0.3",
-		"vitest": "^4.1.7",
-		"wxt": "^0.20.26"
+		"vite": "catalog:",
+		"vite-plus": "catalog:",
+		"web-ext": "^10.8.0",
+		"wxt": "0.21.5"
 	},
 	"dependencies": {
 		"backlog-js": "^0.16.0",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
 		"valibot": "^1.4.1"
-	}
+	},
+	"packageManager": "pnpm@12.18.0"
 }

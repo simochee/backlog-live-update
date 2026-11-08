@@ -58,7 +58,7 @@ export function applyStarMapPatch(
 		const cur = current[cid] ?? [];
 		if (isSameStars(cur, nextStars)) {
 			// 参照同一性を保つため明示的に元参照を入れ直す(spread で消えない保証)。
-			if (cid in current) next[cid] = current[cid];
+			if (cid in current) next[cid] = cur;
 			continue;
 		}
 		next[cid] = nextStars;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { jsonResponse, mockFetch } from "../test/fetch-mock";
 import { fetchInternalComments } from "./fetch-internal-comments";
 
@@ -12,7 +12,9 @@ describe("fetchInternalComments", () => {
 
 		await fetchInternalComments(42, 50);
 
-		const url = String(fn.mock.calls[0][0]);
+		const call = fn.mock.calls.at(0);
+		expect(call).toBeDefined();
+		const url = String(call?.[0]);
 		expect(url).toContain("/GetInitialComments.action?");
 		expect(url).toContain("issueId=42");
 		expect(url).toContain("limit=50");

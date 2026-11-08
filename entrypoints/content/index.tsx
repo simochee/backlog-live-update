@@ -77,7 +77,7 @@ async function probeAndPatch({
 
 		const recentIds = state.recentIds ?? [];
 		const sorted = [...recentIds].sort((a, b) => a - b);
-		const tail = sorted.length > 0 ? sorted[sorted.length - 1] : 0;
+		const tail = sorted.at(-1) ?? 0;
 		// 画面末尾 N 件分を含む window を取りたいので、N+1 件目の id を minId(exclusive)に渡す。
 		// それ未満しか持っていなければ 0 から全件。
 		const windowMinId =

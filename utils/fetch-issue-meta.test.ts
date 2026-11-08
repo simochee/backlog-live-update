@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { jsonResponse, mockFetch } from "../test/fetch-mock";
 import { fetchIssueMeta } from "./fetch-issue-meta";
 
@@ -14,11 +14,13 @@ describe("fetchIssueMeta", () => {
 
 		await fetchIssueMeta("example.backlog.com", "KEY", "PROJ-1");
 
-		const url = String(fn.mock.calls[0][0]);
+		const call = fn.mock.calls.at(0);
+		expect(call).toBeDefined();
+		const url = String(call?.[0]);
 		expect(url).toContain("https://example.backlog.com/api/v2/issues/PROJ-1?");
 		expect(url).toContain("apiKey=KEY");
 		expect(url).toContain("_=");
-		expect(fn.mock.calls[0][1]).toMatchObject({ cache: "no-store" });
+		expect(call?.[1]).toMatchObject({ cache: "no-store" });
 	});
 
 	it("id と updated を返す", async () => {

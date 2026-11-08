@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { applyCommentMetaPatch } from "./apply-comment-meta-patch";
 import type { CommentState } from "./react-fiber";
 
@@ -40,7 +40,8 @@ describe("applyCommentMetaPatch", () => {
 		]);
 
 		expect(changed).toBe(true);
-		expect(next.comments[0].notifyResource).toEqual([
+		expect(next.comments.at(0)).toBeDefined();
+		expect(next.comments.at(0)?.notifyResource).toEqual([
 			{ notificationId: 10, alreadyRead: true, extra: "x" },
 			{ notificationId: 11, alreadyRead: false },
 		]);
@@ -99,7 +100,8 @@ describe("applyCommentMetaPatch", () => {
 			},
 		]);
 		expect(changed).toBe(true);
-		expect(next.comments[2].notifyResource).toEqual([
+		expect(next.comments.at(2)).toBeDefined();
+		expect(next.comments.at(2)?.notifyResource).toEqual([
 			{ notificationId: 30, alreadyRead: false },
 		]);
 	});
