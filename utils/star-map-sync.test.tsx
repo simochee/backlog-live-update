@@ -1,6 +1,6 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 import { applyStarMapPatch } from "./apply-star-map-patch";
 import { buildStarMapPatch } from "./build-star-map-patch";
 import {
