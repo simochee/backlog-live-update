@@ -31,6 +31,7 @@ interface IssueWatchContext {
 	host: string;
 	apiKey: string;
 	issueKey: string;
+	isActive: () => boolean;
 }
 
 /** bridge へ現在の state を要求し、応答(または timeout)を待つ。 */
@@ -70,10 +71,11 @@ function requestBridgeState(script: HTMLScriptElement): Promise<StateResponse> {
 async function probeAndPatch({
 	backlog,
 	script,
+	isActive,
 }: IssueWatchContext): Promise<void> {
 	try {
 		const state = await requestBridgeState(script);
-		if (!state.found || state.issueId == null) return;
+		if (!isActive() || !state.found || state.issueId == null) return;
 
 		const recentIds = state.recentIds ?? [];
 		const sorted = [...recentIds].sort((a, b) => a - b);
@@ -90,7 +92,7 @@ async function probeAndPatch({
 			count: PROBE_WINDOW,
 			order: "asc",
 		});
-		if (comments.length === 0) return;
+		if (!isActive() || comments.length === 0) return;
 
 		const hasNew = comments.some((c) => c.id > tail);
 		if (hasNew) {
@@ -136,6 +138,7 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 	// 進まないため、no-store で叩く fetchIssueMeta を使う(失敗時は null を返す)。
 	const probeIssueUpdated = async () => {
 		const issue = await fetchIssueMeta(host, apiKey, issueKey);
+		if (!ctx.isActive()) return;
 		if (!issue) {
 			debugLog("issue probe returned null (skip tick)", { issueKey });
 			return;
@@ -165,16 +168,18 @@ function createIssueWatcher(ctx: IssueWatchContext): () => Promise<void> {
 	void probeIssueUpdated(); // 起動時点の updated を即 baseline 化する。
 
 	return async () => {
+		if (!ctx.isActive()) return;
 		await probeAndPatch(ctx);
-		await probeIssueUpdated();
+		if (ctx.isActive()) await probeIssueUpdated();
 	};
 }
 
 export default defineContentScript({
 	matches: [...BACKLOG_HOST_MATCHES],
 
-	async main() {
+	async main(ctx) {
 		const { interval, space } = parseSettings(await settingsStorage.getValue());
+		if (ctx.isInvalid) return;
 		const [currentSpaceKey] = location.hostname.split(".");
 
 		if (!space.key || space.key !== currentSpaceKey) return;
@@ -193,6 +198,7 @@ export default defineContentScript({
 		const { script } = await injectScript("/comment-bridge.js", {
 			keepInDom: true,
 		});
+		if (ctx.isInvalid) return;
 
 		const intervalMs = interval * 1000;
 		let stopPoll: (() => void) | undefined;
@@ -213,10 +219,10 @@ export default defineContentScript({
 			notifyLiveState(pollAlive && document.visibilityState === "visible");
 		};
 
-		addEventListener("visibilitychange", syncLiveState);
+		ctx.addEventListener(document, "visibilitychange", syncLiveState);
 		// hard navigation / tab close 直前に badge を消す(tab close 自体は browser
 		// 側で badge state が GC されるが、同 tab 内 hard navigation 対策)。
-		addEventListener("pagehide", () => notifyLiveState(false));
+		ctx.addEventListener(window, "pagehide", () => notifyLiveState(false));
 
 		const disposePoll = () => {
 			stopPoll?.();
@@ -228,16 +234,12 @@ export default defineContentScript({
 		// SPA navigation 検出: content script は isolated world → MAIN world の
 		// history.pushState を patch できない。pathname を軽量 polling し、課題詳細
 		// から離脱した瞬間に polling を止めて badge を OFF にする。
-		let lastPath = location.pathname;
-		setInterval(() => {
-			if (location.pathname === lastPath) return;
-			lastPath = location.pathname;
-			if (!pollAlive) return;
-			if (issueKeyFromPath(lastPath) != null) return;
-			disposePoll();
-		}, 500);
+		ctx.addEventListener(window, "wxt:locationchange", ({ newUrl, oldUrl }) => {
+			if (newUrl.pathname !== oldUrl.pathname) disposePoll();
+		});
 
-		onElementAppear("#comments", () => {
+		const stopAppear = onElementAppear("#comments", () => {
+			if (ctx.isInvalid) return;
 			const issueKey = issueKeyFromPath(location.pathname);
 			if (!issueKey) return;
 
@@ -250,11 +252,16 @@ export default defineContentScript({
 					host: location.hostname,
 					apiKey: space.apiKey,
 					issueKey,
+					isActive: () => ctx.isValid && pollAlive,
 				}),
 				intervalMs,
 			);
 			pollAlive = true;
 			syncLiveState();
+		});
+		ctx.onInvalidated(() => {
+			disposePoll();
+			stopAppear();
 		});
 	},
 });
