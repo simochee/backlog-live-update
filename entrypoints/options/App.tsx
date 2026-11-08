@@ -1,5 +1,4 @@
 import { use, useEffect, useRef, useState } from "react";
-import icon from "@/assets/icon.svg";
 import {
 	INTERVAL_OPTIONS,
 	parseSettings,
@@ -92,17 +91,12 @@ export const App = () => {
 			: undefined;
 	return (
 		<main ref={main}>
-			<header className="app-bar">
-				<img src={icon} width="28" height="28" alt="" />
-				{page.kind === "main" ? (
-					<h1 ref={heading} tabIndex={-1}>
+			<div className="page">
+				{page.kind === "main" && (
+					<h1 className="visually-hidden" ref={heading} tabIndex={-1}>
 						Live for Backlog
 					</h1>
-				) : (
-					<span className="app-title">Live for Backlog</span>
 				)}
-			</header>
-			<div className="page">
 				{page.kind !== "main" && (
 					<header className="page-heading">
 						<button

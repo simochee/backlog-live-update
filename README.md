@@ -2,8 +2,8 @@
 
 > Keep [Backlog](https://backlog.com/) alive without reloading.
 
-Click the extension's toolbar icon to open settings in a full tab. Clicking it
-on a Backlog page suggests that space for adding to your settings.
+Click the extension's toolbar icon to open its options in the browser's
+extension settings. Clicking it on a Backlog page suggests that space for adding.
 
 ## Develop
 
