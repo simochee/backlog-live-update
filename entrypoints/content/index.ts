@@ -198,6 +198,9 @@ export default defineContentScript({
 				if (ctx.isInvalid) return;
 				const issueKey = issueKeyFromPath(location.pathname);
 				if (!issueKey) return;
+				// 既存の #comments には同期呼び出しと onElementAppear の両方から届く。作り直すと
+				// baseline 取得が重複し、badge も一瞬消えるため、同じ課題の監視中は何もしない。
+				if (pollAlive && watchedIssueKey === issueKey) return;
 				disposePoll();
 				const pollVersion = generation;
 				pollAlive = true;
@@ -220,6 +223,8 @@ export default defineContentScript({
 				syncLiveState();
 			};
 			stopAppear = onElementAppear("#comments", start);
+			// 非表示タブでは animation が走らず onElementAppear が発火しないことがあるため、
+			// 既にある要素には同期でも開始する。
 			if (document.querySelector("#comments")) start();
 		};
 		ctx.addEventListener(document, "visibilitychange", syncLiveState);
