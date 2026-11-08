@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
 	queryKeyMatchesIssue,
 	revalidateIssueQueries,
@@ -61,7 +61,9 @@ describe("revalidateIssueQueries", () => {
 		expect(count).toBe(3);
 		// N 回ではなく predicate 付き 1 call で TanStack に絞り込ませる。
 		expect(invalidateQueries).toHaveBeenCalledTimes(1);
-		const { predicate } = invalidateQueries.mock.calls[0][0];
+		const call = invalidateQueries.mock.calls.at(0);
+		expect(call).toBeDefined();
+		const predicate = call?.[0].predicate;
 		expect(all.filter(predicate)).toEqual([
 			{ queryKey: ["issues", "PLAY_GROUND-47"] },
 			{ queryKey: ["issues", 152881077] },

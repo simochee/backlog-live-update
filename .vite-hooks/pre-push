@@ -1,0 +1,13 @@
+#!/bin/sh
+vp exec biome ci --no-errors-on-unmatched . &
+lint_pid=$!
+vp run compile &
+compile_pid=$!
+vp test run &
+test_pid=$!
+
+status=0
+wait "$lint_pid" || status=1
+wait "$compile_pid" || status=1
+wait "$test_pid" || status=1
+exit "$status"
