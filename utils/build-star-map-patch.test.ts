@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { buildStarMapPatch } from "./build-star-map-patch";
 
 describe("buildStarMapPatch", () => {
@@ -74,7 +74,8 @@ describe("buildStarMapPatch", () => {
 			new Set(["100"]),
 		);
 		expect(patch.byCommentId["100"]).toHaveLength(1);
-		expect(patch.byCommentId["100"][0].id).toBe(1);
+		expect(patch.byCommentId["100"]?.at(0)).toBeDefined();
+		expect(patch.byCommentId["100"]?.at(0)?.id).toBe(1);
 	});
 });
 

@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi } from "vite-plus/test";
 
 /** グローバル `fetch` を差し替え、呼び出し記録付きの mock を返す。 */
 export function mockFetch(impl: () => Response | Promise<Response>) {

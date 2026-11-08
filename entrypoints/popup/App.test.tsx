@@ -1,7 +1,7 @@
 import { act, Suspense } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fakeBrowser } from "wxt/testing";
+import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { Settings } from "@/utils/settings";
 
 const saved: Settings = {
