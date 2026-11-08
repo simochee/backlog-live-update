@@ -31,6 +31,7 @@ function viewModel(raw: ReturnType<typeof rawComment>): PullRequestComment {
 		content: raw.content,
 		updated: raw.updated,
 		flush: observable(false),
+		starJsons: observable<unknown[]>([]),
 		formattedContent: observable(raw.formattedContent),
 		observableNotifyResource: observable<unknown>(null),
 		mode: observable(1),
@@ -50,6 +51,7 @@ function fixture(
 		);
 	const pathMap = new Map<string, PullRequestComment[]>();
 	const store: PullRequestStore = {
+		starJsons: observable<unknown[]>([]),
 		projectKey: "TEST",
 		repoName: "repo",
 		number: 1,
@@ -75,7 +77,8 @@ function fixture(
 	};
 }
 const probeOf = (...ids: number[]) => ({
-	comments: ids.map((id) => ({ id, created: T0, updated: T0 })),
+	comments: ids.map((id) => ({ id, created: T0, updated: T0, stars: [] })),
+	pullRequest: { stars: [] },
 	complete: true,
 });
 
@@ -100,10 +103,11 @@ describe("PR の新着コメントの同期", () => {
 		);
 		await syncPullRequest(store, {
 			comments: [
-				rawComment(3, "2026-11-08T09:44:09Z"),
-				rawComment(2, "2026-11-08T09:44:08Z"),
-				rawComment(1, "2026-11-08T09:44:07Z"),
+				{ id: 3, created: "2026-11-08T09:44:09Z", updated: T0, stars: [] },
+				{ id: 2, created: "2026-11-08T09:44:08Z", updated: T0, stars: [] },
+				{ id: 1, created: "2026-11-08T09:44:07Z", updated: T0, stars: [] },
 			],
+			pullRequest: { stars: [] },
 			complete: true,
 		});
 		expect(getPullRequestComments).toHaveBeenCalledWith(
@@ -165,16 +169,18 @@ describe("PR の新着コメントの同期", () => {
 
 describe("PR コメントの編集の同期", () => {
 	const edited = (id: number) => ({
-		comments: [{ id, created: T0, updated: T1 }],
+		comments: [{ id, created: T0, updated: T1, stars: [] }],
+		pullRequest: { stars: [] },
 		complete: true,
 	});
 	it("更新日時が進んだコメントだけ整形済みの本文を取り直して反映する", async () => {
 		const { store, comments, getPullRequestComment } = fixture([1, 2]);
 		await syncPullRequest(store, {
 			comments: [
-				{ id: 1, created: T0, updated: T1 },
-				{ id: 2, created: T0, updated: T0 },
+				{ id: 1, created: T0, updated: T1, stars: [] },
+				{ id: 2, created: T0, updated: T0, stars: [] },
 			],
+			pullRequest: { stars: [] },
 			complete: true,
 		});
 		expect(getPullRequestComment).toHaveBeenCalledOnce();
@@ -202,9 +208,10 @@ describe("PR コメントの編集の同期", () => {
 		comments[1]?.inProcess(true);
 		await syncPullRequest(store, {
 			comments: [
-				{ id: 1, created: T0, updated: T1 },
-				{ id: 2, created: T0, updated: T1 },
+				{ id: 1, created: T0, updated: T1, stars: [] },
+				{ id: 2, created: T0, updated: T1, stars: [] },
 			],
+			pullRequest: { stars: [] },
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -231,7 +238,10 @@ describe("PR コメントの編集の同期", () => {
 	it("ページの更新日時の方が新しいコメントは取り直さない", async () => {
 		const { store, getPullRequestComment } = fixture([1]);
 		await syncPullRequest(store, {
-			comments: [{ id: 1, created: T0, updated: "2026-11-08T09:00:00Z" }],
+			comments: [
+				{ id: 1, created: T0, updated: "2026-11-08T09:00:00Z", stars: [] },
+			],
+			pullRequest: { stars: [] },
 			complete: true,
 		});
 		expect(getPullRequestComment).not.toHaveBeenCalled();
@@ -263,7 +273,13 @@ describe("PR コメントの削除の同期", () => {
 	it("窓より古いコメントは削除を判断できないので残す", async () => {
 		const { store, comments } = fixture([1, 5, 6, 7, 8]);
 		await syncPullRequest(store, {
-			comments: [6, 8].map((id) => ({ id, created: T0, updated: T0 })),
+			comments: [6, 8].map((id) => ({
+				id,
+				created: T0,
+				updated: T0,
+				stars: [],
+			})),
+			pullRequest: { stars: [] },
 			complete: false,
 		});
 		expect(comments.map((c) => c.id)).toEqual([1, 5, 6, 8]);
@@ -289,5 +305,86 @@ describe("PR コメントの削除の同期", () => {
 		const { store, comments } = fixture([1, 2]);
 		await syncPullRequest(store, probeOf());
 		expect(comments.map((c) => c.id)).toEqual([1, 2]);
+	});
+});
+
+describe("PR 本文とコメントのスターの同期", () => {
+	const star = (id: number, userId = 7) => ({
+		id,
+		url: "https://example.backlog.com/git/TEST/repo/pullRequests/1",
+		userId,
+		userName: `user${userId}`,
+		comment: null,
+	});
+	const withStars = (
+		comments: Record<number, ReturnType<typeof star>[]>,
+		pullRequest: ReturnType<typeof star>[] = [],
+	) => ({
+		comments: Object.entries(comments).map(([id, stars]) => ({
+			id: Number(id),
+			created: T0,
+			updated: T0,
+			stars,
+		})),
+		pullRequest: { stars: pullRequest },
+		complete: true,
+	});
+	it("public API のスターから画面の形を組み立てて内部エンドポイントを呼ばずに反映する", async () => {
+		const { store, comments, getPullRequestComment, getPullRequestComments } =
+			fixture([1, 2]);
+		await syncPullRequest(
+			store,
+			withStars({ 1: [star(10)], 2: [] }, [star(20)]),
+		);
+		expect(comments[0]?.starJsons).toHaveBeenLastCalledWith([
+			{
+				id: 10,
+				url: "https://example.backlog.com/git/TEST/repo/pullRequests/1",
+				userId: 7,
+				userName: "user7",
+				userIcon: "UserLargeIcon.action?iconId=7",
+				comment: null,
+			},
+		]);
+		expect(store.starJsons).toHaveBeenLastCalledWith([
+			expect.objectContaining({ id: 20 }),
+		]);
+		expect(comments[1]?.starJsons).not.toHaveBeenCalledWith(expect.anything());
+		expect(getPullRequestComment).not.toHaveBeenCalled();
+		expect(getPullRequestComments).not.toHaveBeenCalled();
+	});
+	it("スターの解除も反映する", async () => {
+		const { store, comments } = fixture([1]);
+		comments[0]?.starJsons([{ id: 10 }]);
+		store.starJsons([{ id: 20 }]);
+		await syncPullRequest(store, withStars({ 1: [] }, []));
+		expect(comments[0]?.starJsons()).toEqual([]);
+		expect(store.starJsons()).toEqual([]);
+	});
+	it("スターの集合が同じなら再描画しない", async () => {
+		const { store, comments } = fixture([1]);
+		const existing = { id: 10, userIcon: "kept" };
+		comments[0]?.starJsons([existing]);
+		vi.mocked(comments[0]?.starJsons ?? vi.fn()).mockClear();
+		await syncPullRequest(store, withStars({ 1: [star(10)] }));
+		expect(comments[0]?.starJsons).not.toHaveBeenCalledWith(expect.anything());
+		expect(comments[0]?.starJsons()).toEqual([existing]);
+	});
+	it("既にあるスターは画面の値を残し、増えた分だけ組み立てる", async () => {
+		const { store, comments } = fixture([1]);
+		const existing = { id: 10, userIcon: "kept" };
+		comments[0]?.starJsons([existing]);
+		await syncPullRequest(store, withStars({ 1: [star(10), star(11, 8)] }));
+		expect(comments[0]?.starJsons()).toEqual([
+			existing,
+			expect.objectContaining({ id: 11, userId: 8 }),
+		]);
+	});
+	it("編集中や送信中のコメントのスターは書き換えない", async () => {
+		const { store, comments } = fixture([1, 2]);
+		comments[0]?.mode(2);
+		comments[1]?.inProcess(true);
+		await syncPullRequest(store, withStars({ 1: [star(10)], 2: [star(11)] }));
+		expect(comments.map((c) => c.starJsons())).toEqual([[], []]);
 	});
 });
