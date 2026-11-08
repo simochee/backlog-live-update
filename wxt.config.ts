@@ -16,9 +16,6 @@ export default defineConfig({
 		...(browser === "firefox"
 			? {
 					browser_specific_settings: {
-						gecko_android: {
-							strict_min_version: "142.0",
-						},
 						gecko: {
 							id: "backlog-live-update@simochee.net",
 							strict_min_version: "140.0",
