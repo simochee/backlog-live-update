@@ -116,7 +116,7 @@ it("空の一覧には案内を表示する", async () => {
 		settings: { interval: 60, spaces: [] },
 	});
 	await renderApp();
-	expect(container.textContent).toContain("No spaces yet");
+	expect(container.textContent).toContain("No spaces added");
 	expect(button("Add space")).toBeDefined();
 });
 it("停止中と API キー未入力の状態を表示する", async () => {
@@ -131,7 +131,7 @@ it("停止中と API キー未入力の状態を表示する", async () => {
 	});
 	await renderApp();
 	expect(container.textContent).toContain("Paused");
-	expect(container.textContent).toContain("API key missing");
+	expect(container.textContent).toContain("API Key not set");
 });
 it("間隔を変えるとスペースを保って保存する", async () => {
 	await renderApp();
@@ -214,11 +214,11 @@ it("API キーの表示切り替えは保存せずパスワードマネージャ
 	expect(input("api-key").autocomplete).toBe("off");
 	expect(input("api-key").hasAttribute("data-1p-ignore")).toBe(true);
 	expect(input("api-key").getAttribute("data-lpignore")).toBe("true");
-	await click("Show API key");
+	await click("Show API Key");
 	expect(input("api-key").type).toBe("text");
-	expect(button("Show API key").getAttribute("aria-pressed")).toBe("true");
-	expect(button("Show API key").getAttribute("aria-controls")).toBe("api-key");
-	await click("Show API key");
+	expect(button("Show API Key").getAttribute("aria-pressed")).toBe("true");
+	expect(button("Show API Key").getAttribute("aria-controls")).toBe("api-key");
+	await click("Show API Key");
 	expect(input("api-key").type).toBe("password");
 	expect(await stored()).toEqual(saved);
 });
