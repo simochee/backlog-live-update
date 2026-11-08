@@ -66,6 +66,44 @@ afterEach(() => {
 });
 
 describe("content の寿命", () => {
+	it("拡張 API が無効化で同期エラーになっても監視を解除する", async () => {
+		await content.main(ctx);
+		mocks.appear?.();
+		vi.mocked(browser.runtime.sendMessage).mockImplementation(() => {
+			throw new Error("Extension context invalidated");
+		});
+		expect(() => ctx.notifyInvalidated()).not.toThrow();
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.stopAppear).toHaveBeenCalledOnce();
+		expect(mocks.comments).not.toHaveBeenCalled();
+	});
+
+	it("設定変更前の通信が後から完了してもページを再検証しない", async () => {
+		await content.main(ctx);
+		mocks.appear?.();
+		await vi.advanceTimersByTimeAsync(0);
+		let complete:
+			| ((value: { id: number; updated: string }) => void)
+			| undefined;
+		mocks.meta.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					complete = resolve;
+				}),
+		);
+		const revalidate = vi.fn();
+		mocks.script?.addEventListener("lfb:revalidate-issue", revalidate);
+		await vi.advanceTimersByTimeAsync(15000);
+		await settingsStorage.setValue({
+			interval: 30,
+			space: { key: "example", apiKey: "NEW" },
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		complete?.({ id: 42, updated: "2027-01-01" });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(revalidate).not.toHaveBeenCalled();
+	});
+
 	it("起動時に対象外の Space でも、設定が一致すれば監視を始める", async () => {
 		await settingsStorage.setValue(DEFAULT_SETTINGS);
 		await content.main(ctx);
