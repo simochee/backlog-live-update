@@ -47,7 +47,6 @@ export default defineUnlistedScript(() => {
 		return {
 			found: true,
 			issueId,
-			minId: ids.length > 0 ? Math.max(...ids) : 0,
 			recentIds: ids,
 		};
 	};
