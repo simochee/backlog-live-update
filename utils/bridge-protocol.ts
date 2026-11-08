@@ -5,6 +5,8 @@ import { isCommentIdKey } from "./comment-id";
 // isolated world と MAIN world の間では JSON 文字列で授受する。
 export const BRIDGE_EVENT = {
 	requestState: "lfb:request-state",
+	syncPullRequest: "lfb:sync-pull-request",
+	pullRequestSynced: "lfb:pull-request-synced",
 	state: "lfb:state",
 	fetchAppend: "lfb:fetch-append",
 	revalidateIssue: "lfb:revalidate-issue",
@@ -79,6 +81,11 @@ export const StarMapPatchSchema = v.object({
 });
 export type StarMapPatch = v.InferOutput<typeof StarMapPatchSchema>;
 
+export const PullRequestProbeSchema = v.object({
+	comments: v.array(v.object({ id: v.number(), created: v.string() })),
+});
+export type PullRequestProbe = v.InferOutput<typeof PullRequestProbeSchema>;
+
 function parseJson(detail: unknown): unknown {
 	if (!v.is(v.string(), detail)) return null;
 	try {
@@ -106,4 +113,11 @@ export function parseStarMapPatch(detail: unknown): StarMapPatch | null {
 export function parseCommentMetaPatchList(detail: unknown): CommentMetaPatch[] {
 	const result = v.safeParse(CommentMetaPatchListSchema, parseJson(detail));
 	return result.success ? result.output : [];
+}
+
+export function parsePullRequestProbe(
+	detail: unknown,
+): PullRequestProbe | null {
+	const result = v.safeParse(PullRequestProbeSchema, parseJson(detail));
+	return result.success ? result.output : null;
 }

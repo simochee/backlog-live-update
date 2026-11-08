@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { issueKeyFromPath } from "./backlog";
+import { issueKeyFromPath, pullRequestRefFromPath } from "./backlog";
 
 describe("issueKeyFromPath", () => {
 	it("課題詳細 URL から issueKey を取り出す", () => {
@@ -18,5 +18,21 @@ describe("issueKeyFromPath", () => {
 		["ルート", "/"],
 	])("%s は undefined", (_label, path) => {
 		expect(issueKeyFromPath(path)).toBeUndefined();
+	});
+});
+
+describe("pullRequestRefFromPath", () => {
+	it("PR 詳細だけを検出する", () => {
+		expect(pullRequestRefFromPath("/git/TEST/my-repo/pullRequests/12")).toEqual(
+			{ projectKey: "TEST", repoName: "my-repo", number: 12 },
+		);
+		for (const path of [
+			"/git/TEST/repo/pullRequests",
+			"/git/TEST/repo/pullRequests/add",
+			"/git/TEST/repo/pullRequests/1/edit",
+			"/view/TEST-1",
+			"/git/TEST/repo/pullRequests/0",
+		])
+			expect(pullRequestRefFromPath(path)).toBeUndefined();
 	});
 });

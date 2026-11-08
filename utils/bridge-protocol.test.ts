@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
 	parseCommentMetaPatchList,
 	parseIssueRef,
+	parsePullRequestProbe,
 	parseStarMapPatch,
 	parseStateResponse,
 } from "./bridge-protocol";
@@ -285,4 +286,19 @@ it("予約語の comment key を除外し、出力と Object.prototype の proto
 		Object.entries(Object.getOwnPropertyDescriptors(Object.prototype)),
 	).toStrictEqual(Object.entries(objectPrototype));
 	expect(Object.getPrototypeOf(Object.prototype)).toBeNull();
+});
+
+describe("parsePullRequestProbe", () => {
+	it("public API の取得結果を JSON 文字列から復元する", () => {
+		const probe = { comments: [{ id: 1, created: "2026-11-08T09:44:08Z" }] };
+		expect(parsePullRequestProbe(JSON.stringify(probe))).toEqual(probe);
+	});
+	it("文字列でない detail や壊れた JSON や形の違う値は null にする", () => {
+		expect(parsePullRequestProbe({ comments: [] })).toBeNull();
+		expect(parsePullRequestProbe("{")).toBeNull();
+		expect(
+			parsePullRequestProbe(JSON.stringify({ comments: [{ id: "1" }] })),
+		).toBeNull();
+		expect(parsePullRequestProbe(undefined)).toBeNull();
+	});
 });

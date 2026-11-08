@@ -9,3 +9,23 @@ export function issueKeyFromPath(pathname: string): string | undefined {
 	const [, issueKey] = pathname.match(/^\/view\/([A-Z0-9_]+-[0-9]+)/) ?? [];
 	return issueKey;
 }
+
+export function pullRequestRefFromPath(
+	pathname: string,
+): { projectKey: string; repoName: string; number: number } | undefined {
+	const match = pathname.match(
+		/^\/git\/([^/]+)\/([^/]+)\/pullRequests\/([1-9]\d*)\/?$/,
+	);
+	if (!match?.[1] || !match[2]) return;
+	try {
+		const number = Number(match[3]);
+		if (!Number.isSafeInteger(number)) return;
+		return {
+			projectKey: decodeURIComponent(match[1]),
+			repoName: decodeURIComponent(match[2]),
+			number,
+		};
+	} catch {
+		return;
+	}
+}
