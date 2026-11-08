@@ -121,7 +121,7 @@ describe("PR の public API の取得", () => {
 			"fetch",
 			vi.fn((input: string | URL | Request) =>
 				Promise.resolve(
-					String(input).includes("/comments") || String(input).endsWith("/repo")
+					String(input).includes("/comments")
 						? jsonResponse([])
 						: jsonResponse({}, false),
 				),
