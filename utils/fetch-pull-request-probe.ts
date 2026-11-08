@@ -61,7 +61,10 @@ export async function fetchPullRequestProbe(
 				updated,
 				stars: toProbeStars(stars),
 			})),
-			pullRequest: { stars: toProbeStars(pullRequest.stars) },
+			pullRequest: {
+				updated: pullRequest.updated,
+				stars: toProbeStars(pullRequest.stars),
+			},
 			complete: comments.length < PROBE_COMMENT_COUNT,
 		};
 	} catch {
