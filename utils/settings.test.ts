@@ -1,59 +1,166 @@
 import { describe, expect, it } from "vite-plus/test";
+import { fakeBrowser } from "wxt/testing/fake-browser";
 import {
 	DEFAULT_SETTINGS,
+	effectiveConfigForHost,
+	findSpaceForHost,
+	INTERVAL_OPTIONS,
 	migrateSettingsV1ToV2,
 	migrateSettingsV2ToV3,
+	migrateSettingsV3ToV4,
 	parseSettings,
+	parseSpaceKeyInput,
+	settingsStorage,
 } from "./settings";
 
+const space = { key: "nulab", apiKey: "key", enabled: true };
+
 describe("parseSettings", () => {
-	it("有効な settings をそのまま通す", () => {
-		const input = { interval: 30, space: { key: "nulab", apiKey: "key" } };
-		expect(parseSettings(input)).toEqual(input);
-	});
-
-	it("object でなければ既定値へフォールバックする", () => {
-		expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
-		expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
-		expect(parseSettings("oops")).toEqual(DEFAULT_SETTINGS);
-		expect(parseSettings(42)).toEqual(DEFAULT_SETTINGS);
-	});
-
-	it("interval が不正/欠損なら既定値へフォールバックする", () => {
-		const space = { key: "a", apiKey: "k" };
-		expect(parseSettings({ interval: 0, space }).interval).toBe(
-			DEFAULT_SETTINGS.interval,
-		);
-		expect(parseSettings({ interval: -3, space }).interval).toBe(
-			DEFAULT_SETTINGS.interval,
-		);
-		expect(parseSettings({ interval: 1, space }).interval).toBe(
-			DEFAULT_SETTINGS.interval,
-		);
-		expect(parseSettings({ interval: "60", space }).interval).toBe(
-			DEFAULT_SETTINGS.interval,
-		);
-		expect(parseSettings({ space }).interval).toBe(DEFAULT_SETTINGS.interval);
-	});
-
-	it("space が不正/欠損なら既定 space へフォールバックする", () => {
-		expect(parseSettings({ interval: 60, space: "nope" }).space).toEqual(
-			DEFAULT_SETTINGS.space,
-		);
-		expect(parseSettings({ interval: 60, space: { key: 123 } }).space).toEqual(
-			DEFAULT_SETTINGS.space,
-		);
-		expect(parseSettings({ interval: 60 }).space).toEqual(
-			DEFAULT_SETTINGS.space,
-		);
-	});
-
-	it("許可された interval 値はそのまま保持する", () => {
-		for (const v of [15, 30, 60, 300, 600]) {
-			expect(
-				parseSettings({ interval: v, space: { key: "x", apiKey: "y" } }),
-			).toEqual({ interval: v, space: { key: "x", apiKey: "y" } });
+	it("有効な設定と許可された間隔を保持する", () => {
+		for (const interval of INTERVAL_OPTIONS) {
+			const settings = { interval, spaces: [space] };
+			expect(parseSettings(settings)).toEqual(settings);
 		}
+	});
+	it("不正な設定と間隔を既定値へ戻す", () => {
+		for (const raw of [null, undefined, "oops", 42])
+			expect(parseSettings(raw)).toEqual(DEFAULT_SETTINGS);
+		for (const interval of [undefined, 0, -3, 1, "60"])
+			expect(parseSettings({ interval, spaces: [space] })).toEqual({
+				...DEFAULT_SETTINGS,
+				spaces: [space],
+			});
+	});
+	it("spaces が配列でなければ空配列にする", () => {
+		for (const spaces of [undefined, null, {}, "nope"])
+			expect(parseSettings({ spaces }).spaces).toEqual([]);
+	});
+	it("不正な要素だけを除外し enabled の欠損は true にする", () => {
+		expect(
+			parseSettings({
+				spaces: [
+					space,
+					null,
+					{ key: 123, apiKey: "k" },
+					{ key: "missing" },
+					{ key: "a", apiKey: "k", enabled: "yes" },
+					{ key: "b", apiKey: "", enabled: false },
+					{ key: "c", apiKey: "k" },
+				],
+			}).spaces,
+		).toEqual([
+			space,
+			{ key: "b", apiKey: "", enabled: false },
+			{ key: "c", apiKey: "k", enabled: true },
+		]);
+	});
+});
+
+describe("v4 への移行", () => {
+	it("v3 の単一スペースを有効な配列要素にする", () => {
+		expect(
+			migrateSettingsV3ToV4({
+				interval: 30,
+				space: { key: "nulab", apiKey: "key" },
+			}),
+		).toEqual({ interval: 30, spaces: [space] });
+	});
+	it("空の既定スペースを引き継がない", () => {
+		expect(
+			migrateSettingsV3ToV4({ interval: 60, space: { key: "", apiKey: "" } }),
+		).toEqual(DEFAULT_SETTINGS);
+	});
+	it("v1 からの移行を連鎖して先頭スペースを保つ", () => {
+		expect(
+			migrateSettingsV3ToV4(
+				migrateSettingsV2ToV3(
+					migrateSettingsV1ToV2({
+						interval: 30,
+						spaces: [
+							{ id: "nulab", apiKey: "key" },
+							{ id: "other", apiKey: "k" },
+						],
+					}),
+				),
+			),
+		).toEqual({ interval: 30, spaces: [space] });
+	});
+	it("storage の v1 バージョンから v4 まで自動移行する", async () => {
+		fakeBrowser.reset();
+		await fakeBrowser.storage.local.set({
+			settings: { interval: 30, spaces: [{ id: "nulab", apiKey: "key" }] },
+			settings$: { v: 1 },
+		});
+		await settingsStorage.migrate();
+		expect(await settingsStorage.getValue()).toEqual({
+			interval: 30,
+			spaces: [space],
+		});
+		expect(
+			(await fakeBrowser.storage.local.get("settings$")).settings$,
+		).toEqual({ v: 4 });
+	});
+});
+
+describe("ホストに対応する設定", () => {
+	const settings = {
+		interval: 30 as const,
+		spaces: [
+			{ ...space, enabled: false },
+			{ ...space, apiKey: "second" },
+			{ key: "other", apiKey: "other", enabled: true },
+		],
+	};
+	it("ドメインに依存せず最初の有効なキー一致を返す", () => {
+		for (const domain of ["backlog.com", "backlog.jp", "backlogtool.com"])
+			expect(findSpaceForHost(settings, `nulab.${domain}`)?.apiKey).toBe(
+				"second",
+			);
+		expect(findSpaceForHost(settings, "missing.backlog.com")).toBeUndefined();
+	});
+	it("無効なスペースには実効設定を返さない", () => {
+		expect(
+			effectiveConfigForHost(
+				{ interval: 60, spaces: [{ ...space, enabled: false }] },
+				"nulab.backlog.jp",
+			),
+		).toBeUndefined();
+		expect(effectiveConfigForHost(settings, "nulab.backlog.jp")).toEqual({
+			interval: 30,
+			apiKey: "second",
+		});
+	});
+});
+
+describe("parseSpaceKeyInput", () => {
+	it("キーと Backlog のホストと URL を受け付ける", () => {
+		for (const input of [
+			" nulab ",
+			"nulab.backlog.jp",
+			"https://nulab.backlog.com/view/ABC-1",
+			"https://nulab.backlogtool.com/view/ABC-1",
+		])
+			expect(parseSpaceKeyInput(input)).toBe("nulab");
+	});
+	it("キーの大文字小文字を変更しない", () => {
+		expect(parseSpaceKeyInput("Team-1")).toBe("Team-1");
+		expect(parseSpaceKeyInput("https://Team-1.backlog.jp/view/ABC-1")).toBe(
+			"Team-1",
+		);
+	});
+	it("外部 URL と不正な入力を受け付けない", () => {
+		for (const input of [
+			"",
+			"a b",
+			"https://evil.com",
+			"nulab.backlog.jp.evil.com",
+			"https://backlog.com",
+			"https://a.b.backlog.com",
+			"ftp://nulab.backlog.com",
+			"https://evil@nulab.backlog.jp",
+			"https://nulab.backlog.jp:444",
+		])
+			expect(parseSpaceKeyInput(input)).toBeUndefined();
 	});
 });
 
@@ -118,10 +225,13 @@ describe("migrateSettingsV2ToV3", () => {
 	});
 
 	it("不正値は既定値へフォールバックする", () => {
-		expect(migrateSettingsV2ToV3(null)).toEqual(DEFAULT_SETTINGS);
+		expect(migrateSettingsV2ToV3(null)).toEqual({
+			interval: 60,
+			space: { key: "", apiKey: "" },
+		});
 		expect(migrateSettingsV2ToV3({ interval: 60, space: "nope" })).toEqual({
 			interval: 60,
-			space: DEFAULT_SETTINGS.space,
+			space: { key: "", apiKey: "" },
 		});
 	});
 

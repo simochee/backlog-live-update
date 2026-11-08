@@ -64,7 +64,7 @@ beforeEach(async () => {
 	await settingsStorage.setValue({
 		...DEFAULT_SETTINGS,
 		interval: 15,
-		space: { key: "example", apiKey: "KEY" },
+		spaces: [{ key: "example", apiKey: "KEY", enabled: true }],
 	});
 	ctx = new ContentScriptContext("content-test");
 });
@@ -107,7 +107,7 @@ describe("監視の開始", () => {
 		mocks.meta.mockClear();
 		await settingsStorage.setValue({
 			interval: 30,
-			space: { key: "example", apiKey: "NEW" },
+			spaces: [{ key: "example", apiKey: "NEW", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(0);
 		expect(mocks.meta).toHaveBeenCalledOnce();
@@ -170,7 +170,7 @@ describe("content の寿命", () => {
 		await vi.advanceTimersByTimeAsync(15000);
 		await settingsStorage.setValue({
 			interval: 30,
-			space: { key: "example", apiKey: "NEW" },
+			spaces: [{ key: "example", apiKey: "NEW", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(0);
 		complete?.({ id: 42, updated: "2027-01-01" });
@@ -184,7 +184,7 @@ describe("content の寿命", () => {
 		document.body.innerHTML = '<div id="comments"></div>';
 		await settingsStorage.setValue({
 			interval: 15,
-			space: { key: "example", apiKey: "KEY" },
+			spaces: [{ key: "example", apiKey: "KEY", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(mocks.comments).toHaveBeenCalledOnce();
@@ -196,7 +196,7 @@ describe("content の寿命", () => {
 		vi.mocked(createClient).mockClear();
 		await settingsStorage.setValue({
 			interval: 30,
-			space: { key: "example", apiKey: "NEW" },
+			spaces: [{ key: "example", apiKey: "NEW", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(30000);
 		expect(createClient).not.toHaveBeenCalled();
@@ -210,7 +210,7 @@ describe("content の寿命", () => {
 		await vi.advanceTimersByTimeAsync(10000);
 		await settingsStorage.setValue({
 			interval: 30,
-			space: { key: "example", apiKey: "NEW" },
+			spaces: [{ key: "example", apiKey: "NEW", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(0);
 		await vi.advanceTimersByTimeAsync(29999);
@@ -228,7 +228,7 @@ describe("content の寿命", () => {
 		mocks.appear?.();
 		await settingsStorage.setValue({
 			interval: 15,
-			space: { key: "other", apiKey: "KEY" },
+			spaces: [{ key: "other", apiKey: "KEY", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(60000);
 		expect(mocks.comments).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe("content の寿命", () => {
 		});
 		await settingsStorage.setValue({
 			interval: 15,
-			space: { key: "example", apiKey: "KEY" },
+			spaces: [{ key: "example", apiKey: "KEY", enabled: true }],
 		});
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(mocks.comments).toHaveBeenCalledOnce();
@@ -260,5 +260,71 @@ describe("content の寿命", () => {
 			type: "live-state",
 			active: false,
 		});
+	});
+});
+
+describe("複数スペースの設定", () => {
+	it("先頭以外の有効な一致スペースの API キーを使う", async () => {
+		await settingsStorage.setValue({
+			interval: 15,
+			spaces: [
+				{ key: "other", apiKey: "OTHER", enabled: true },
+				{ key: "example", apiKey: "MATCH", enabled: true },
+			],
+		});
+		await content.main(ctx);
+		mocks.appear?.();
+		expect(createClient).toHaveBeenLastCalledWith(
+			expect.objectContaining({ apiKey: "MATCH" }),
+		);
+	});
+	it("無効なスペースではポーリングしない", async () => {
+		await settingsStorage.setValue({
+			interval: 15,
+			spaces: [{ key: "example", apiKey: "KEY", enabled: false }],
+		});
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(createClient).not.toHaveBeenCalled();
+		expect(mocks.meta).not.toHaveBeenCalled();
+		expect(mocks.comments).not.toHaveBeenCalled();
+	});
+	it("他スペースの追加と編集と無効化と削除では baseline と badge を作り直さない", async () => {
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		await vi.advanceTimersByTimeAsync(0);
+		const current = { key: "example", apiKey: "KEY", enabled: true };
+		const other = { key: "other", apiKey: "OTHER", enabled: true };
+		const states = liveStates();
+		for (const spaces of [
+			[other, current],
+			[{ ...other, apiKey: "NEW" }, current],
+			[{ ...other, enabled: false }, current],
+			[current],
+		]) {
+			await settingsStorage.setValue({ interval: 15, spaces });
+			await vi.advanceTimersByTimeAsync(0);
+		}
+		expect(mocks.meta).toHaveBeenCalledOnce();
+		expect(createClient).toHaveBeenCalledOnce();
+		expect(liveStates()).toEqual(states);
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).toHaveBeenCalledOnce();
+	});
+	it("現在のスペースを無効化すると停止し有効化すると再開する", async () => {
+		document.body.innerHTML = '<div id="comments"></div>';
+		await content.main(ctx);
+		const space = { key: "example", apiKey: "KEY", enabled: false };
+		await settingsStorage.setValue({ interval: 15, spaces: [space] });
+		await vi.advanceTimersByTimeAsync(30000);
+		expect(mocks.comments).not.toHaveBeenCalled();
+		expect(liveStates().at(-1)).toBe(false);
+		await settingsStorage.setValue({
+			interval: 15,
+			spaces: [{ ...space, enabled: true }],
+		});
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).toHaveBeenCalledOnce();
 	});
 });
