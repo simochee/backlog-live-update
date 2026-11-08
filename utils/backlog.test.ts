@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { issueKeyFromPath, pullRequestRefFromPath } from "./backlog";
+import {
+	issueKeyFromPath,
+	pullRequestRefFromPath,
+	watchedPageKeyFromPath,
+} from "./backlog";
 
 describe("issueKeyFromPath", () => {
 	it("課題詳細 URL から issueKey を取り出す", () => {
@@ -34,5 +38,37 @@ describe("pullRequestRefFromPath", () => {
 			"/git/TEST/repo/pullRequests/0",
 		])
 			expect(pullRequestRefFromPath(path)).toBeUndefined();
+	});
+
+	it("コミット履歴とファイルのタブも同じ PR として検出する", () => {
+		for (const tab of ["history", "diff"])
+			expect(
+				pullRequestRefFromPath(`/git/TEST/my-repo/pullRequests/12/${tab}`),
+			).toEqual({ projectKey: "TEST", repoName: "my-repo", number: 12 });
+	});
+});
+
+describe("watchedPageKeyFromPath", () => {
+	it("同じ PR のタブ間では同じ監視対象になる", () => {
+		const comments = watchedPageKeyFromPath("/git/TEST/repo/pullRequests/1");
+		expect(comments).toBeDefined();
+		expect(
+			watchedPageKeyFromPath("/git/TEST/repo/pullRequests/1/history"),
+		).toBe(comments);
+		expect(watchedPageKeyFromPath("/git/TEST/repo/pullRequests/1/diff")).toBe(
+			comments,
+		);
+	});
+
+	it("別の PR や課題は別の監視対象になる", () => {
+		const pr = watchedPageKeyFromPath("/git/TEST/repo/pullRequests/1");
+		expect(watchedPageKeyFromPath("/git/TEST/repo/pullRequests/2")).not.toBe(
+			pr,
+		);
+		expect(watchedPageKeyFromPath("/git/TEST/other/pullRequests/1")).not.toBe(
+			pr,
+		);
+		expect(watchedPageKeyFromPath("/view/TEST-1")).toBe("TEST-1");
+		expect(watchedPageKeyFromPath("/dashboard")).toBeUndefined();
 	});
 });

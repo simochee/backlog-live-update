@@ -14,7 +14,7 @@ export function pullRequestRefFromPath(
 	pathname: string,
 ): { projectKey: string; repoName: string; number: number } | undefined {
 	const match = pathname.match(
-		/^\/git\/([^/]+)\/([^/]+)\/pullRequests\/([1-9]\d*)\/?$/,
+		/^\/git\/([^/]+)\/([^/]+)\/pullRequests\/([1-9]\d*)(?:\/(?:history|diff))?\/?$/,
 	);
 	if (!match?.[1] || !match[2]) return;
 	try {
@@ -28,4 +28,13 @@ export function pullRequestRefFromPath(
 	} catch {
 		return;
 	}
+}
+
+export function watchedPageKeyFromPath(pathname: string): string | undefined {
+	const pullRequest = pullRequestRefFromPath(pathname);
+	if (pullRequest) {
+		const { projectKey, repoName, number } = pullRequest;
+		return `pull-request:${projectKey}/${repoName}/${number}`;
+	}
+	return issueKeyFromPath(pathname);
 }

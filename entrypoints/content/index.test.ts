@@ -369,6 +369,22 @@ describe("PR ページの監視", () => {
 		await vi.advanceTimersByTimeAsync(60000);
 		expect(mocks.probe).toHaveBeenCalledTimes(2);
 	});
+	it("コミット履歴やファイルのタブに切り替えても監視を続け、別の PR へ移ると止める", async () => {
+		await watchPullRequest();
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.probe).toHaveBeenCalledTimes(1);
+		for (const tab of ["history", "diff"]) {
+			location.pathname = `/git/TEST/repo/pullRequests/1/${tab}`;
+			mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+			await vi.advanceTimersByTimeAsync(15000);
+		}
+		expect(mocks.probe).toHaveBeenCalledTimes(3);
+		expect(liveStates().at(-1)).toBe(true);
+		location.pathname = "/git/TEST/repo/pullRequests/2";
+		mocks.script?.dispatchEvent(new CustomEvent("lfb:pull-request-synced"));
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(mocks.probe).toHaveBeenCalledTimes(3);
+	});
 	it("MAIN world へ渡すイベントに API キーを含めない", async () => {
 		const sync = await watchPullRequest("SECRET-KEY");
 		await vi.advanceTimersByTimeAsync(15000);
