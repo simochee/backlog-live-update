@@ -9,6 +9,7 @@ import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
 import { buildStarMapPatch } from "@/utils/build-star-map-patch";
 import { debugLog } from "@/utils/debug-log";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
+import { fetchWithoutCache } from "@/utils/fetch-without-cache";
 import { createLiveStateMessage } from "@/utils/live-state-message";
 import { onElementAppear } from "@/utils/on-element-appear";
 import { pollWhileVisible } from "@/utils/poll-while-visible";
@@ -191,6 +192,7 @@ export default defineContentScript({
 		const backlog = createClient({
 			host: location.hostname,
 			apiKey: space.apiKey,
+			fetch: fetchWithoutCache,
 		});
 
 		// fiber 操作は MAIN world でしか動かないため bridge を注入する。
