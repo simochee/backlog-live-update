@@ -9,6 +9,7 @@ import { buildCommentMetaPatches } from "@/utils/build-comment-meta-patches";
 import { buildStarMapPatch } from "@/utils/build-star-map-patch";
 import { debugLog } from "@/utils/debug-log";
 import { fetchIssueMeta } from "@/utils/fetch-issue-meta";
+import { createLiveStateMessage } from "@/utils/live-state-message";
 import { onElementAppear } from "@/utils/on-element-appear";
 import { pollWhileVisible } from "@/utils/poll-while-visible";
 import { parseSettings, settingsStorage } from "@/utils/settings";
@@ -202,7 +203,7 @@ export default defineContentScript({
 		const notifyLiveState = (active: boolean) => {
 			debugLog("notify live-state", { active });
 			void browser.runtime
-				.sendMessage({ type: "live-state", active })
+				.sendMessage(createLiveStateMessage(active))
 				.catch((err) => debugLog("notify live-state failed", err));
 		};
 
