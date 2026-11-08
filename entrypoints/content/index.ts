@@ -152,6 +152,7 @@ export default defineContentScript({
 		let stopPoll: (() => void) | undefined;
 		let stopAppear: (() => void) | undefined;
 		let pollAlive = false;
+		let watchedIssueKey: string | undefined;
 		let generation = 0;
 		let settingsChanged = false;
 		let bridge: ReturnType<typeof injectScript> | undefined;
@@ -173,6 +174,7 @@ export default defineContentScript({
 			stopPoll?.();
 			stopPoll = undefined;
 			pollAlive = false;
+			watchedIssueKey = undefined;
 			syncLiveState();
 		};
 		const restart = async (raw: unknown) => {
@@ -199,6 +201,7 @@ export default defineContentScript({
 				disposePoll();
 				const pollVersion = generation;
 				pollAlive = true;
+				watchedIssueKey = issueKey;
 				stopPoll = pollWhileVisible(
 					createIssueWatcher({
 						backlog,
@@ -222,7 +225,12 @@ export default defineContentScript({
 		ctx.addEventListener(document, "visibilitychange", syncLiveState);
 		ctx.addEventListener(window, "pagehide", disposePoll);
 		ctx.addEventListener(window, "wxt:locationchange", ({ newUrl, oldUrl }) => {
-			if (newUrl.pathname !== oldUrl.pathname) disposePoll();
+			if (
+				newUrl.pathname !== oldUrl.pathname &&
+				pollAlive &&
+				issueKeyFromPath(newUrl.pathname) !== watchedIssueKey
+			)
+				disposePoll();
 		});
 		const unwatch = settingsStorage.watch((value) => {
 			settingsChanged = true;

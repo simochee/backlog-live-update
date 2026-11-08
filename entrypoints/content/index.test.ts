@@ -66,6 +66,31 @@ afterEach(() => {
 });
 
 describe("content の寿命", () => {
+	it("課題詳細から離れると polling と badge を停止する", async () => {
+		await content.main(ctx);
+		mocks.appear?.();
+		location.pathname = "/dashboard";
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).not.toHaveBeenCalled();
+		expect(browser.runtime.sendMessage).toHaveBeenLastCalledWith({
+			type: "live-state",
+			active: false,
+		});
+	});
+
+	it("遷移通知より先に新しい課題の監視が始まっても停止しない", async () => {
+		await content.main(ctx);
+		mocks.appear?.();
+		location.pathname = "/view/P-2";
+		mocks.appear?.();
+		await vi.advanceTimersByTimeAsync(15000);
+		expect(mocks.comments).toHaveBeenCalledOnce();
+		expect(browser.runtime.sendMessage).toHaveBeenLastCalledWith({
+			type: "live-state",
+			active: true,
+		});
+	});
+
 	it("拡張 API が無効化で同期エラーになっても監視を解除する", async () => {
 		await content.main(ctx);
 		mocks.appear?.();
