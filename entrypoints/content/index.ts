@@ -157,9 +157,13 @@ export default defineContentScript({
 		let bridge: ReturnType<typeof injectScript> | undefined;
 
 		const notifyLiveState = (active: boolean) => {
-			void browser.runtime
-				.sendMessage(createLiveStateMessage(active))
-				.catch((err) => debugLog("notify live-state failed", err));
+			try {
+				void browser.runtime
+					.sendMessage(createLiveStateMessage(active))
+					.catch((err) => debugLog("notify live-state failed", err));
+			} catch (err) {
+				debugLog("notify live-state failed", err);
+			}
 		};
 		const syncLiveState = () => {
 			notifyLiveState(pollAlive && document.visibilityState === "visible");
