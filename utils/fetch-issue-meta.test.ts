@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("fetchIssueMeta", () => {
-	it("public REST API を no-store + cache-bust で叩く", async () => {
+	it("最新の課題情報を取得し、API キーは URL に含めずヘッダで認証する", async () => {
 		const fn = mockFetch(() =>
 			jsonResponse({ id: 42, updated: "2026-05-27T04:53:21Z" }),
 		);
@@ -17,10 +17,13 @@ describe("fetchIssueMeta", () => {
 		const call = fn.mock.calls.at(0);
 		expect(call).toBeDefined();
 		const url = String(call?.[0]);
-		expect(url).toContain("https://example.backlog.com/api/v2/issues/PROJ-1?");
-		expect(url).toContain("apiKey=KEY");
-		expect(url).toContain("_=");
-		expect(call?.[1]).toMatchObject({ cache: "no-store" });
+		expect(url).toBe("https://example.backlog.com/api/v2/issues/PROJ-1");
+		expect(url).not.toContain("apiKey=");
+		expect(url).not.toContain("KEY");
+		expect(call?.[1]).toMatchObject({
+			cache: "no-store",
+			headers: { "Backlog-API-Key": "KEY" },
+		});
 	});
 
 	it("id と updated を返す", async () => {
