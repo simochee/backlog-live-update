@@ -6,10 +6,6 @@ import {
 	type SpaceConfig,
 	settingsStorage,
 } from "@/utils/settings";
-import {
-	type SuggestedSpace,
-	suggestedSpaceStorage,
-} from "@/utils/suggested-space";
 import { SpaceDetail, SpaceForm } from "./SpaceForm";
 
 // render 内で読み直すと Suspense の再試行ごとに Promise が変わるため、ここで共有する。
@@ -22,10 +18,7 @@ export const App = () => {
 	const settings = use(settingsPromise);
 	const [values, setValues] = useState(() => parseSettings(settings));
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
-	const [adding, setAdding] = useState<{ suggestion?: SuggestedSpace } | null>(
-		null,
-	);
-	const [suggestion, setSuggestion] = useState<SuggestedSpace | null>(null);
+	const [adding, setAdding] = useState(false);
 	const [saveError, setSaveError] = useState(false);
 	const addButton = useRef<HTMLButtonElement>(null);
 	const restoreAddFocus = useRef(false);
@@ -35,32 +28,14 @@ export const App = () => {
 			restoreAddFocus.current = false;
 		}
 	});
-	const openAdd = (next: { suggestion?: SuggestedSpace }) => {
+	const openAdd = () => {
 		setExpandedKey(null);
-		setAdding(next);
+		setAdding(true);
 	};
 	const closeAdd = () => {
 		restoreAddFocus.current = true;
-		setAdding(null);
+		setAdding(false);
 	};
-	useEffect(() => {
-		let active = true;
-		let changed = false;
-		const unwatch = suggestedSpaceStorage.watch((value) => {
-			changed = true;
-			if (active) setSuggestion(value);
-		});
-		void suggestedSpaceStorage
-			.getValue()
-			.then((value) => {
-				if (active && !changed) setSuggestion(value);
-			})
-			.catch(() => {});
-		return () => {
-			active = false;
-			unwatch();
-		};
-	}, []);
 	const update = async (inputs: Settings) => {
 		setValues(inputs);
 		try {
@@ -146,7 +121,7 @@ export const App = () => {
 											),
 										});
 										restoreAddFocus.current = true;
-										setAdding(null);
+										setAdding(false);
 										setExpandedKey(null);
 									}}
 								/>
@@ -154,23 +129,13 @@ export const App = () => {
 						</section>
 					</div>
 				))}
-				{!adding &&
-					suggestion &&
-					!values.spaces.some((space) => space.key === suggestion.key) && (
-						<div className="row add-row">
-							<button type="button" onClick={() => openAdd({ suggestion })}>
-								Add {suggestion.key}
-							</button>
-						</div>
-					)}
 				{adding ? (
 					<div className="add-item">
 						<div className="row add-heading" id="add-heading">
-							{adding.suggestion ? `Add ${adding.suggestion.key}` : "Add space"}
+							Add space
 						</div>
 						<SpaceForm
 							spaces={values.spaces}
-							suggestion={adding.suggestion}
 							onCancel={closeAdd}
 							onAdd={(space) => {
 								update({ ...values, spaces: [...values.spaces, space] });
@@ -180,7 +145,7 @@ export const App = () => {
 					</div>
 				) : (
 					<div className="row add-row">
-						<button ref={addButton} type="button" onClick={() => openAdd({})}>
+						<button ref={addButton} type="button" onClick={openAdd}>
 							Add space
 						</button>
 					</div>

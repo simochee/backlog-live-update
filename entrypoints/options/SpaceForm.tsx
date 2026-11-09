@@ -1,19 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { parseSpaceKeyInput, type SpaceConfig } from "@/utils/settings";
-import {
-	parseSuggestedSpace,
-	type SuggestedSpace,
-} from "@/utils/suggested-space";
+import { parseSpaceUrl } from "@/utils/space-url";
 import { ApiKeyField } from "./ApiKeyField";
 
 export function SpaceForm({
 	spaces,
-	suggestion,
 	onAdd,
 	onCancel,
 }: {
 	spaces: SpaceConfig[];
-	suggestion?: SuggestedSpace;
 	onAdd: (space: SpaceConfig) => void;
 	onCancel: () => void;
 }) {
@@ -21,12 +16,12 @@ export function SpaceForm({
 	useEffect(() => {
 		keyInput.current?.focus();
 	}, []);
-	const [input, setInput] = useState(suggestion?.key ?? "");
+	const [input, setInput] = useState("");
 	const [apiKey, setApiKey] = useState("");
 	const key = parseSpaceKeyInput(input);
-	const knownSpace =
-		parseSuggestedSpace(input.includes("://") ? input : `https://${input}`) ??
-		(key === suggestion?.key ? suggestion : null);
+	const knownSpace = parseSpaceUrl(
+		input.includes("://") ? input : `https://${input}`,
+	);
 	const duplicate = spaces.some((space) => space.key === key);
 	return (
 		<form
