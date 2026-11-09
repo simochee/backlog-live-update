@@ -259,24 +259,10 @@ it("削除を確認してからスペースだけを削除し一覧へ戻る", a
 		"Backlog Live Update",
 	);
 });
-it("クリック元のスペースを session storage から提案し API 設定を新しいタブで開く", async () => {
-	await fakeBrowser.storage.session.set({
-		suggestedSpace: { key: "nulab", origin: "https://nulab.backlog.jp" },
-	});
+it("貼り付けた URL のスペースの API 設定を新しいタブで開く", async () => {
 	await renderApp();
-	await click("Add nulab");
-	expect(input("space-key").value).toBe("nulab");
-	expect(
-		[...container.querySelectorAll("button")].some(
-			(element) => element.textContent === "Add nulab",
-		),
-	).toBe(false);
-	expect(container.querySelector("form")?.getAttribute("aria-labelledby")).toBe(
-		"add-heading",
-	);
-	expect(container.querySelector("#add-heading")?.textContent).toBe(
-		"Add nulab",
-	);
+	await click("Add space");
+	await changeText("space-key", "https://nulab.backlog.jp/view/P-1");
 	expect(container.querySelector("a")?.href).toBe(
 		"https://nulab.backlog.jp/EditApiSettings.action",
 	);
@@ -284,43 +270,7 @@ it("クリック元のスペースを session storage から提案し API 設定
 	await changeText("space-key", "different");
 	expect(container.querySelector("a")).toBeNull();
 });
-it("開いたまま別のスペースをクリックすると提案が更新され外部タブでは消える", async () => {
-	await renderApp();
-	await act(() =>
-		fakeBrowser.storage.session.set({
-			suggestedSpace: { key: "nulab", origin: "https://nulab.backlog.jp" },
-		}),
-	);
-	expect(button("Add nulab")).toBeDefined();
-	await act(() =>
-		fakeBrowser.storage.session.set({
-			suggestedSpace: { key: "other", origin: "https://other.backlog.com" },
-		}),
-	);
-	expect(container.textContent).not.toContain("Add nulab");
-	expect(button("Add other")).toBeDefined();
-	await act(() => fakeBrowser.storage.session.remove("suggestedSpace"));
-	expect(container.textContent).not.toContain("Add other");
-});
-it("登録済みスペースは提案せず新規登録後も提案を隠す", async () => {
-	await fakeBrowser.storage.session.set({
-		suggestedSpace: { key: "example", origin: "https://example.backlog.com" },
-	});
-	await renderApp();
-	expect(container.textContent).not.toContain("Add example");
-	await act(() =>
-		fakeBrowser.storage.session.set({
-			suggestedSpace: { key: "other", origin: "https://other.backlog.com" },
-		}),
-	);
-	await click("Add other");
-	await click("Add");
-	expect(container.textContent).not.toContain("Add other");
-	expect((await stored()).spaces.some((space) => space.key === "other")).toBe(
-		true,
-	);
-});
-it("提案がなくても手動でスペースを追加できる", async () => {
+it("キーだけを入力したときは API 設定のリンクを出さない", async () => {
 	await renderApp();
 	await click("Add space");
 	expect(input("space-key").value).toBe("");

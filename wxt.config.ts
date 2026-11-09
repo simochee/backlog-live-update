@@ -11,7 +11,7 @@ export default defineConfig({
 		name: "__MSG_extName__",
 		description: "__MSG_extDescription__",
 		default_locale: "en",
-		permissions: ["storage", "activeTab"],
+		permissions: ["storage"],
 		action: { default_title: "__MSG_extName__" },
 		...(browser === "firefox"
 			? {
